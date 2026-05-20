@@ -2,7 +2,13 @@
 import { computed } from 'vue'
 import ThreeJoystick from '../components/ThreeJoystick.vue'
 import VirtualActionButton from '../components/VirtualActionButton.vue'
-import type { ArcadeAxisPayload, ArcadeButtonConfig, ArcadeButtonPayload, ArcadeViewMode } from './types'
+import type {
+  ArcadeAxisPayload,
+  ArcadeButtonConfig,
+  ArcadeButtonPayload,
+  ArcadeViewMode,
+  JoystickKeyboardMapping,
+} from './types'
 
 // 这个组件是后续 npm 包的主要入口：把底层 3D 摇杆和 3D 按钮组合成一个可配置控制器。
 // App.vue 只作为示例页面使用它，业务项目也应该优先接入这个组件，而不是直接拼底层部件。
@@ -14,6 +20,8 @@ const props = withDefaults(
     color?: string
     /** 方向箭头颜色；默认跟随主题色。 */
     arrowColor?: string
+    /** 摇杆键盘方向映射；默认支持方向键和 WASD。 */
+    joystickKeyboardMapping?: JoystickKeyboardMapping
     /** 3D 渲染视角；flat 为平面俯视，angled 为 45° 玩家视角。 */
     viewMode?: ArcadeViewMode
     /** 摇杆画布尺寸。 */
@@ -87,6 +95,7 @@ function onButtonChange(button: ArcadeButtonConfig, pressed: boolean) {
         :size="joystickSize"
         :color="color"
         :arrow-color="resolvedArrowColor"
+        :keyboard-mapping="joystickKeyboardMapping"
         :view-mode="viewMode"
         @move="onMove"
         @end="emit('axisEnd')"

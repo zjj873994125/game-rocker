@@ -1,14 +1,46 @@
 {
-  "name": "yao-gan-demo",
-  "private": true,
-  "version": "0.0.0",
+  "name": "zjj-virtual-arcade-controller",
+  "version": "0.1.0",
+  "description": "A Vue 3 and Three.js virtual arcade controller component library.",
+  "keywords": [
+    "vue",
+    "vue3",
+    "threejs",
+    "joystick",
+    "virtual-joystick",
+    "arcade",
+    "game-controller",
+    "controller"
+  ],
+  "author": "zhongjijie",
+  "license": "MIT",
   "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/lib/index.d.ts",
+      "import": "./dist/index.mjs"
+    },
+    "./style.css": "./dist/style.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
+    "build:lib": "vite build --config vite.lib.config.ts",
+    "build:types": "vue-tsc -p tsconfig.types.json",
+    "build:package": "npm run build:lib && npm run build:types",
+    "pack:local": "npm pack --dry-run",
     "preview": "vite preview"
   },
-  "dependencies": {
+  "peerDependencies": {
     "three": "^0.184.0",
     "vue": "^3.5.34"
   },
@@ -17,8 +49,10 @@
     "@types/three": "^0.184.1",
     "@vitejs/plugin-vue": "^6.0.6",
     "@vue/tsconfig": "^0.9.1",
+    "three": "^0.184.0",
     "typescript": "~6.0.2",
     "vite": "^8.0.12",
+    "vue": "^3.5.34",
     "vue-tsc": "^3.2.8"
   }
 }

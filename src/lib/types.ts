@@ -1,7 +1,12 @@
 export type ButtonRow = 'top' | 'bottom'
 
+export type JoystickDirection = 'up' | 'down' | 'left' | 'right'
+
 /** 控制器视角模式：flat 是正俯视，angled 是模拟玩家视角的 45° 俯视。 */
 export type ArcadeViewMode = 'flat' | 'angled'
+
+/** 摇杆键盘方向映射，使用 KeyboardEvent.code，例如 ArrowUp、KeyW、Space。 */
+export type JoystickKeyboardMapping = Partial<Record<JoystickDirection, string[]>>
 
 /**
  * 单个动作按钮的声明式配置。

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as THREE from 'three'
+import type { JoystickDirection, JoystickKeyboardMapping } from '../lib/types'
 
 const props = withDefaults(
   defineProps<{
@@ -9,12 +10,7 @@ const props = withDefaults(
     color?: string
     arrowColor?: string
     viewMode?: 'flat' | 'angled'
-    keyboardMapping?: {
-      up?: string[]
-      down?: string[]
-      left?: string[]
-      right?: string[]
-    }
+    keyboardMapping?: JoystickKeyboardMapping
   }>(),
   {
     size: 182,
@@ -72,10 +68,7 @@ let shadow: THREE.Mesh | null = null
 let animationFrame = 0
 
 const keyboardCodeMap = computed(() => {
-  const entries = Object.entries(props.keyboardMapping) as Array<[
-    'up' | 'down' | 'left' | 'right',
-    string[] | undefined,
-  ]>
+  const entries = Object.entries(props.keyboardMapping) as Array<[JoystickDirection, string[] | undefined]>
 
   return new Map(entries.flatMap(([direction, codes]) => (codes ?? []).map((code) => [code, direction])))
 })

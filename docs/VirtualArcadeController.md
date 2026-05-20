@@ -28,6 +28,7 @@ import {
   type ArcadeAxisPayload,
   type ArcadeButtonConfig,
   type ArcadeButtonPayload,
+  type JoystickKeyboardMapping,
 } from './lib'
 
 const buttons: ArcadeButtonConfig[] = [
@@ -43,6 +44,12 @@ const buttons: ArcadeButtonConfig[] = [
 
 const axis = ref<ArcadeAxisPayload>({ x: 0, y: 0 })
 const pressed = ref<Record<string, boolean>>({})
+const joystickKeyboardMapping: JoystickKeyboardMapping = {
+  up: ['ArrowUp', 'KeyW'],
+  down: ['ArrowDown', 'KeyS'],
+  left: ['ArrowLeft', 'KeyA'],
+  right: ['ArrowRight', 'KeyD'],
+}
 
 function onAxisChange(payload: ArcadeAxisPayload) {
   axis.value = payload
@@ -59,6 +66,7 @@ function onButtonChange(payload: ArcadeButtonPayload) {
     color="#eb1f2f"
     arrow-color="#eb1f2f"
     view-mode="angled"
+    :joystick-keyboard-mapping="joystickKeyboardMapping"
     :joystick-size="182"
     :button-size="82"
     :top-offset="14"
@@ -69,6 +77,19 @@ function onButtonChange(payload: ArcadeButtonPayload) {
 </template>
 ```
 
+## 样式引入
+
+组件的 scoped style 会在 library 构建时输出到 `dist/style.css`，并通过 `package.json` 的 `./style.css` 子路径导出。
+
+发布成 npm 包后，宿主项目需要手动引入一次样式文件：
+
+```ts
+import { VirtualArcadeController } from 'zjj-virtual-arcade-controller'
+import 'zjj-virtual-arcade-controller/style.css'
+```
+
+这份样式包含摇杆外层尺寸、CSS 方向箭头、动作按钮画布定位、按钮标签、两排按钮网格和移动端响应式规则。缺少它时，Three.js canvas 仍会创建，但箭头、标签和按钮布局会在外部项目中失去正确位置。
+
 ## Props
 
 | Prop | 类型 | 默认值 | 说明 |
@@ -76,6 +97,7 @@ function onButtonChange(payload: ArcadeButtonPayload) {
 | `buttons` | `ArcadeButtonConfig[]` | 默认 8 个动作按钮 | 动作按钮声明。通过 `row` 决定上排或下排。 |
 | `color` | `string` | `#eb1f2f` | 摇杆头和动作按钮的主题色。 |
 | `arrowColor` | `string` | 跟随 `color` | 摇杆四方向箭头颜色。 |
+| `joystickKeyboardMapping` | `JoystickKeyboardMapping` | 方向键 + WASD | 摇杆键盘方向映射。使用 `KeyboardEvent.code`，例如 `ArrowUp`、`KeyW`。 |
 | `viewMode` | `'flat' \| 'angled'` | `flat` | 控制摇杆和按钮的渲染视角。`flat` 是平面俯视，`angled` 是 2.5D 玩家视角。 |
 | `joystickSize` | `number` | `182` | 摇杆 Three.js 画布尺寸，单位 px。 |
 | `buttonSize` | `number` | `82` | 单个动作按钮 Three.js 画布尺寸，单位 px。 |
@@ -139,6 +161,34 @@ function onButtonChange(payload: ArcadeButtonPayload) {
 }
 ```
 
+## 摇杆键盘映射
+
+`joystickKeyboardMapping` 用来修改摇杆方向键。默认支持方向键和 WASD：
+
+```ts
+const joystickKeyboardMapping: JoystickKeyboardMapping = {
+  up: ['ArrowUp', 'KeyW'],
+  down: ['ArrowDown', 'KeyS'],
+  left: ['ArrowLeft', 'KeyA'],
+  right: ['ArrowRight', 'KeyD'],
+}
+```
+
+如果业务项目希望换成另一组按键，例如 T/F/G/H，可以这样配置：
+
+```vue
+<VirtualArcadeController
+  :joystick-keyboard-mapping="{
+    up: ['KeyT'],
+    down: ['KeyG'],
+    left: ['KeyF'],
+    right: ['KeyH'],
+  }"
+/>
+```
+
+建议不要让摇杆方向键和动作按钮的 `keyBinding` 重叠；如果重叠，同一次键盘输入会同时触发摇杆方向和按钮事件。
+
 ## 视角模式
 
 `viewMode` 控制摇杆和动作按钮的 Three.js 相机：
@@ -174,7 +224,6 @@ function onButtonChange(payload: ArcadeButtonPayload) {
 
 以下能力现在还没有作为 `VirtualArcadeController` 的公开 prop：
 
-- 摇杆方向键映射。底层 `ThreeJoystick` 已支持，但主组件暂未透出。
 - 摇杆和按钮之间的间距。
 - 按钮列宽、行距和响应式断点。
 - 面板背景、外壳样式和螺丝装饰。
