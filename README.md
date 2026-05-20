@@ -1,42 +1,38 @@
-# Virtual Arcade Controller
+# ZJJ Virtual Arcade Controller
 
-一个基于 Vue 3 + Three.js 的虚拟街机控制器组件库，提供独立摇杆、独立按钮和组合控制器三层组件。
+基于 Vue 3 + Three.js 的虚拟街机控制器组件库。
 
-## 功能
+`zjj-virtual-arcade-controller` 提供三层组件：
 
-- 3D 摇杆：支持鼠标、触摸和键盘方向键/WASD。
-- 3D 动作按钮：支持鼠标、触摸和自定义键盘映射。
-- 可配置按钮布局：通过 `buttons` 声明上排/下排按钮。
-- 可配置主题色、摇杆尺寸、按钮尺寸、上排缩进和视角模式。
-- 支持平面俯视和 45° 玩家视角两种渲染模式。
-- 事件输出清晰：摇杆轴向变化、摇杆释放、按钮按下/释放。
+- `VirtualArcadeController`：开箱即用的组合控制器，包含 1 个摇杆、方向箭头、动作按钮、按钮标签和布局。
+- `ThreeJoystick`：独立 3D 摇杆组件。
+- `VirtualActionButton`：独立 3D 动作按钮组件。
 
-## 本地开发
+适用于网页游戏、触屏控制面板、键盘映射调试、街机风格交互原型等场景。
 
-项目依赖 Vite 8，Node 版本需要 `20.19+` 或 `22.12+`。
+## 功能特性
 
-```bash
-npm install
-npm run dev
-npm run build
-```
+- 拟真的 Three.js 摇杆和动作按钮。
+- 支持鼠标、触摸和键盘输入。
+- 支持平面俯视和 2.5D 玩家视角。
+- 支持配置按钮布局、颜色、尺寸、标签和上排按钮缩进。
+- 支持配置摇杆方向键映射。
+- 提供 Vue 3 组件类型、props 类型和事件载荷类型。
+- 样式通过 `zjj-virtual-arcade-controller/style.css` 导出。
 
-如果本机默认 Node 版本较低，可以先切到 Node 22：
-
-```bash
-nvm use 22
-npm run build
-```
-
-## 安装后使用
-
-组件发布到 npm 后，在 Vue 3 项目中安装：
+## 安装
 
 ```bash
 npm install zjj-virtual-arcade-controller
 ```
 
-在业务组件中引入主组件和样式：
+Peer dependencies：
+
+```bash
+npm install vue three
+```
+
+## 快速开始
 
 ```vue
 <script setup lang="ts">
@@ -50,6 +46,16 @@ import {
 } from 'zjj-virtual-arcade-controller'
 import 'zjj-virtual-arcade-controller/style.css'
 
+const axis = ref<ArcadeAxisPayload>({ x: 0, y: 0 })
+const pressed = ref<Record<string, boolean>>({})
+
+const joystickKeyboardMapping: JoystickKeyboardMapping = {
+  up: ['KeyT'],
+  down: ['KeyG'],
+  left: ['KeyF'],
+  right: ['KeyH'],
+}
+
 const buttons: ArcadeButtonConfig[] = [
   { id: 'dash', label: 'X', keyBinding: 'KeyU', row: 'top' },
   { id: 'skill', label: 'Y', keyBinding: 'KeyI', row: 'top' },
@@ -60,15 +66,6 @@ const buttons: ArcadeButtonConfig[] = [
   { id: 'trigger', label: 'RT', keyBinding: 'KeyZ', row: 'bottom' },
   { id: 'special', label: 'LT', keyBinding: 'KeyC', row: 'bottom' },
 ]
-
-const axis = ref<ArcadeAxisPayload>({ x: 0, y: 0 })
-const pressed = ref<Record<string, boolean>>({})
-const joystickKeyboardMapping: JoystickKeyboardMapping = {
-  up: ['KeyT'],
-  down: ['KeyG'],
-  left: ['KeyF'],
-  right: ['KeyH'],
-}
 
 function onAxisChange(payload: ArcadeAxisPayload) {
   axis.value = payload
@@ -87,6 +84,7 @@ function onButtonChange(payload: ArcadeButtonPayload) {
   <VirtualArcadeController
     :buttons="buttons"
     color="#eb1f2f"
+    arrow-color="#eb1f2f"
     view-mode="angled"
     :joystick-keyboard-mapping="joystickKeyboardMapping"
     :joystick-size="182"
@@ -99,21 +97,17 @@ function onButtonChange(payload: ArcadeButtonPayload) {
 </template>
 ```
 
-`VirtualArcadeController` 是 npm 包的推荐主入口。`App.vue` 只是本仓库的 demo 页面，里面的页面标题、主题切换、`SELECT / START / COIN`、状态卡片和外层街机外壳不属于包 API。
-
-## 分层导入
-
-这个包按三层组件导出：
+## 组件层级
 
 | 组件 | 适用场景 |
 | --- | --- |
-| `ThreeJoystick` | 只需要一个独立 3D 摇杆，业务侧自己排版按钮或其他 UI。 |
-| `VirtualActionButton` | 只需要一个独立 3D 按钮，或想自己组合多个按钮。 |
-| `VirtualArcadeController` | 快速接入完整控制器内核：1 个摇杆、方向箭头、8 个动作按钮和按钮标签。 |
+| `VirtualArcadeController` | 需要完整控制器内核时使用：摇杆、方向箭头、按钮、标签和布局。 |
+| `ThreeJoystick` | 只需要独立摇杆，并希望自己设计布局时使用。 |
+| `VirtualActionButton` | 只需要单个 3D 按钮，或希望自己组合多个按钮时使用。 |
 
-白色底盘、螺丝、街机外壳、顶部 `SELECT / START / COIN` 仍属于 demo 外观，不在这三个基础组件内。后续如果需要开箱即用的完整面板，可以新增更高层的 `ArcadeControlPanel`。
+本地 demo 里的白色底盘、螺丝、街机外壳、`SELECT / START / COIN` 和状态卡片不属于当前 npm 包 API。
 
-单独使用摇杆：
+## 独立摇杆
 
 ```vue
 <script setup lang="ts">
@@ -140,7 +134,7 @@ function onMove(x: number, y: number) {
 </template>
 ```
 
-单独使用按钮：
+## 独立按钮
 
 ```vue
 <script setup lang="ts">
@@ -152,7 +146,7 @@ const pressed = ref(false)
 </script>
 
 <template>
-  <div class="action-button-field">
+  <div>
     <VirtualActionButton
       color="#eb1f2f"
       view-mode="angled"
@@ -166,106 +160,65 @@ const pressed = ref(false)
 </template>
 ```
 
-## 基础用法
+## `VirtualArcadeController` API
 
-当前还没有发布到 npm，可以在项目内直接从 `src/lib` 引入：
-
-```vue
-<script setup lang="ts">
-import { ref } from 'vue'
-import {
-  VirtualArcadeController,
-  type ArcadeAxisPayload,
-  type ArcadeButtonConfig,
-  type ArcadeButtonPayload,
-} from './lib'
-
-const buttons: ArcadeButtonConfig[] = [
-  { id: 'x', label: 'X', keyBinding: 'KeyU', row: 'top' },
-  { id: 'y', label: 'Y', keyBinding: 'KeyI', row: 'top' },
-  { id: 'rb', label: 'RB', keyBinding: 'KeyE', row: 'top' },
-  { id: 'lb', label: 'LB', keyBinding: 'KeyQ', row: 'top' },
-  { id: 'a', label: 'A', keyBinding: 'KeyJ', row: 'bottom' },
-  { id: 'b', label: 'B', keyBinding: 'KeyK', row: 'bottom' },
-  { id: 'rt', label: 'RT', keyBinding: 'KeyZ', row: 'bottom' },
-  { id: 'lt', label: 'LT', keyBinding: 'KeyC', row: 'bottom' },
-]
-
-const axis = ref({ x: 0, y: 0 })
-const pressed = ref<Record<string, boolean>>({})
-
-function onAxisChange(payload: ArcadeAxisPayload) {
-  axis.value = payload
-}
-
-function onButtonChange(payload: ArcadeButtonPayload) {
-  pressed.value[payload.id] = payload.pressed
-}
-</script>
-
-<template>
-  <VirtualArcadeController
-    :buttons="buttons"
-    color="#eb1f2f"
-    view-mode="flat"
-    :joystick-size="182"
-    :button-size="82"
-    :top-offset="14"
-    @axis-change="onAxisChange"
-    @axis-end="axis = { x: 0, y: 0 }"
-    @button-change="onButtonChange"
-  />
-</template>
-```
-
-发布成 npm 包后，宿主项目需要同时引入组件样式：
-
-```ts
-import { VirtualArcadeController } from 'zjj-virtual-arcade-controller'
-import 'zjj-virtual-arcade-controller/style.css'
-```
-
-`style.css` 包含摇杆方向箭头、动作按钮、按钮标签、两排按钮布局和响应式排列。没有引入这个文件时，组件仍然可以渲染，但外部项目会丢失核心布局和拟真外观。
-
-## 组件文档
-
-`VirtualArcadeController` 是后续 npm 包的核心组件，只负责白色控制面板里的摇杆、方向箭头、动作按钮和按钮标签。
-
-更完整的组件边界、props、events、slots 和按钮配置说明见：
-
-- [VirtualArcadeController 组件文档](./docs/VirtualArcadeController.md)
-
-`App.vue` 里的页面标题、主题切换、`SELECT / START / COIN`、状态卡片和外层街机外壳属于 demo 示例，不建议作为第一阶段核心组件 API。
-
-## 组件 API
-
-### `VirtualArcadeController`
+### Props
 
 | Prop | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `buttons` | `ArcadeButtonConfig[]` | 8 个默认街机按钮 | 动作按钮配置。 |
-| `color` | `string` | `#eb1f2f` | 摇杆头和按钮主题色。 |
-| `arrowColor` | `string` | 跟随 `color` | 摇杆方向箭头颜色。 |
-| `joystickKeyboardMapping` | `JoystickKeyboardMapping` | 方向键 + WASD | 摇杆键盘方向映射。 |
-| `viewMode` | `'flat' \| 'angled'` | `flat` | 渲染视角。`flat` 为平面俯视，`angled` 为 45° 玩家视角。 |
-| `joystickSize` | `number` | `182` | 摇杆画布尺寸。 |
-| `buttonSize` | `number` | `82` | 单个按钮画布尺寸。 |
-| `topOffset` | `number` | `14` | 上排按钮和标签的整体缩进。 |
-| `showLabels` | `boolean` | `true` | 是否显示按钮标签。 |
+| `buttons` | `ArcadeButtonConfig[]` | 8 个默认动作按钮 | 动作按钮配置。 |
+| `color` | `string` | `#eb1f2f` | 摇杆头和按钮颜色。 |
+| `arrowColor` | `string` | 跟随 `color` | 方向箭头颜色。 |
+| `joystickKeyboardMapping` | `JoystickKeyboardMapping` | 方向键 + WASD | 摇杆方向键映射。 |
+| `viewMode` | `'flat' \| 'angled'` | `flat` | 渲染视角。 |
+| `joystickSize` | `number` | `182` | 摇杆 canvas 尺寸，单位 px。 |
+| `buttonSize` | `number` | `82` | 单个按钮 canvas 尺寸，单位 px。 |
+| `topOffset` | `number` | `14` | 上排按钮的水平缩进。 |
+| `showLabels` | `boolean` | `true` | 是否渲染按钮标签。 |
 
 ### 事件
 
 | 事件 | 载荷 | 说明 |
 | --- | --- | --- |
 | `axis-change` | `{ x: number; y: number }` | 摇杆移动时触发。 |
-| `axis-end` | 无 | 摇杆释放回中时触发。 |
-| `button-change` | `{ id: string; label: string; pressed: boolean }` | 任意按钮按下或释放时触发。 |
+| `axis-end` | 无 | 摇杆回中时触发。 |
+| `button-change` | `{ id: string; label: string; pressed: boolean }` | 任意动作按钮按下或释放时触发。 |
 
 ### 插槽
 
 | 插槽 | 说明 |
 | --- | --- |
-| `joystick` | 渲染在摇杆区域内，可用于放玩家编号、装饰文字或提示。 |
+| `joystick` | 渲染在摇杆区域周围，可用于放玩家编号、装饰或提示。 |
+
+## 键盘映射
+
+`joystickKeyboardMapping` 使用 `KeyboardEvent.code`。
+
+默认映射：
+
+```ts
+const joystickKeyboardMapping: JoystickKeyboardMapping = {
+  up: ['ArrowUp', 'KeyW'],
+  down: ['ArrowDown', 'KeyS'],
+  left: ['ArrowLeft', 'KeyA'],
+  right: ['ArrowRight', 'KeyD'],
+}
+```
+
+自定义示例：
+
+```vue
+<VirtualArcadeController
+  :joystick-keyboard-mapping="{
+    up: ['KeyT'],
+    down: ['KeyG'],
+    left: ['KeyF'],
+    right: ['KeyH'],
+  }"
+/>
+```
+
+建议不要让摇杆方向键和动作按钮的 `keyBinding` 重叠；如果重叠，同一个键盘输入会同时触发摇杆和按钮事件。
 
 ## 类型
 
@@ -294,9 +247,7 @@ export type ArcadeButtonPayload = {
 }
 ```
 
-## 导出入口
-
-当前导出集中在 `src/lib/index.ts`：
+## 导出
 
 ```ts
 export { default as VirtualArcadeController } from './VirtualArcadeController.vue'
@@ -313,26 +264,26 @@ export type {
 } from './types'
 ```
 
-建议业务项目优先使用 `VirtualArcadeController`。`ThreeJoystick` 和 `VirtualActionButton` 是底层组件，适合需要自定义布局时单独使用。
-
-## 后续 npm 包化建议
-
-完整执行清单见：
-
-- [npm 包化步骤清单](./docs/npm-package-roadmap.md)
-
-1. 增加 Vite library mode，例如输出 `dist/index.mjs` 和 `dist/style.css`。
-2. 把 `vue` 和 `three` 调整为 `peerDependencies`，避免宿主项目重复安装运行时。
-3. 增加 `types`、`exports`、`files` 字段。
-4. 补充组件测试或最小 playground，避免后续改动破坏事件和布局。
-5. 发布前确认包名、README 截图、license 和版本策略。
-
 ## 注意事项
 
-- 宿主项目需要安装 `vue` 和 `three`，它们是 peer dependencies，不会被内联进组件包。
-- 使用任意导出组件时都需要引入 `zjj-virtual-arcade-controller/style.css`。
-- `VirtualActionButton` 只渲染 3D 按钮本体，按钮文字建议由业务侧或 `VirtualArcadeController` 的标签区域承载。
-- 白色底盘、螺丝、街机外壳和 `SELECT / START / COIN` 仍属于 demo 外观，不在当前基础组件 API 内。
+- 使用任意组件时，都需要引入 `zjj-virtual-arcade-controller/style.css`。
+- `vue` 和 `three` 是 peer dependencies，需要由宿主项目安装。
+- `VirtualActionButton` 只渲染 3D 按钮本体。按钮文字建议由业务侧自己排版，或直接使用 `VirtualArcadeController`。
+- 当前包输出 Vue 3 组件和 ESM 产物。
+
+## 本地开发
+
+```bash
+npm install
+npm run dev
+npm run build
+```
+
+本项目使用 Vite 8，需要 Node `20.19+` 或 `22.12+`。
+
+项目文档：
+
+- [VirtualArcadeController 组件文档](./docs/VirtualArcadeController.md)
 
 ## License
 
