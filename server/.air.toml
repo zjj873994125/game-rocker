@@ -1,0 +1,32 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  # Air 每次检测到 Go 文件变化后，会重新构建这个二进制并重启服务。
+  cmd = "go build -o ./tmp/map-server ./cmd/server"
+  bin = "./tmp/map-server"
+  full_bin = "./tmp/map-server"
+  delay = 1000
+  stop_on_error = true
+  send_interrupt = true
+  kill_delay = 500
+  include_ext = ["go", "toml", "env"]
+  include_dir = ["cmd", "internal", "configs", "migrations"]
+  exclude_dir = ["data", "tmp", ".cache"]
+  exclude_file = []
+  exclude_regex = ["_test.go"]
+  exclude_unchanged = false
+  follow_symlink = false
+  log = "tmp/air-build.log"
+
+[log]
+  time = true
+
+[color]
+  main = "magenta"
+  watcher = "cyan"
+  build = "yellow"
+  runner = "green"
+
+[misc]
+  clean_on_exit = true

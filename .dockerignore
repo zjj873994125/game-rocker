@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.pnpm-store
+*.log
+*.local
+server/.cache
+server/tmp
+server/data
+server/configs/database.local.env
+zjj-virtual-arcade-controller-*.tgz

@@ -1,0 +1,42 @@
+services:
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: zjj-zombie-api
+    restart: unless-stopped
+    environment:
+      GIN_MODE: release
+      ADDR: :8088
+      DB_ENABLED: "true"
+      DB_DRIVER: mysql
+      DB_HOST: ${DB_HOST:-127.0.0.1}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME:-zombie_game_db}
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-}
+      DB_CHARSET: utf8mb4
+      DB_PARSE_TIME: "true"
+      DB_LOC: Local
+      DB_MAX_IDLE_CONNS: "10"
+      DB_MAX_OPEN_CONNS: "50"
+      DB_CONN_MAX_LIFETIME: 1h
+      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:-change-this-secret-before-deploy}
+      AUTH_TOKEN_TTL: ${AUTH_TOKEN_TTL:-168h}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8088/api/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: zjj-zombie-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8080}:80"

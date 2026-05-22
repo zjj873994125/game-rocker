@@ -1,7 +1,8 @@
 {
-  "name": "zjj-virtual-arcade-controller",
+  "name": "zjj-virtual-arcade-controller-examples",
   "version": "0.1.0",
-  "description": "A Vue 3 and Three.js virtual arcade controller component library.",
+  "private": true,
+  "description": "Examples for zjj-virtual-arcade-controller.",
   "keywords": [
     "vue",
     "vue3",
@@ -15,44 +16,27 @@
   "author": "zhongjijie",
   "license": "MIT",
   "type": "module",
-  "main": "./dist/index.mjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/lib/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/lib/index.d.ts",
-      "import": "./dist/index.mjs"
-    },
-    "./style.css": "./dist/style.css"
-  },
-  "files": [
-    "dist"
-  ],
-  "sideEffects": [
-    "**/*.css"
-  ],
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "build:lib": "vite build --config vite.lib.config.ts",
-    "build:types": "vue-tsc -p tsconfig.types.json",
-    "build:package": "npm run build:lib && npm run build:types",
-    "pack:local": "npm pack --dry-run",
     "preview": "vite preview"
   },
-  "peerDependencies": {
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.19.3",
+    "element-plus": "^2.14.0",
+    "pinia": "^3.0.4",
     "three": "^0.184.0",
-    "vue": "^3.5.34"
+    "vue": "^3.5.34",
+    "vue-router": "^5.0.7",
+    "zjj-virtual-arcade-controller": "^0.1.1"
   },
   "devDependencies": {
     "@types/node": "^24.12.3",
-    "@types/three": "^0.184.1",
+    "@types/three": "^0.184.0",
     "@vitejs/plugin-vue": "^6.0.6",
     "@vue/tsconfig": "^0.9.1",
-    "three": "^0.184.0",
     "typescript": "~6.0.2",
     "vite": "^8.0.12",
-    "vue": "^3.5.34",
     "vue-tsc": "^3.2.8"
   }
 }
