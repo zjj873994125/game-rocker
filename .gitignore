@@ -16,7 +16,6 @@ server/.cache/
 server/tmp/
 server/configs/database.local.env
 /server/deploy-webhook
-/deploy-webhook
 deploy-webhook.env
 
 # Editor directories and files
