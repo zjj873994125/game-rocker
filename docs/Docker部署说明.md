@@ -127,6 +127,74 @@ docker compose -p zjj-zombie-game pull
 docker compose -p zjj-zombie-game up -d
 ```
 
+## Curl 触发发布
+
+如果不想每次登录服务器手动执行发布命令，可以在服务器宿主机上运行一个最简单的部署 webhook。它只负责收到 `curl` 请求后执行：
+
+```bash
+git pull
+docker compose pull
+docker compose up -d
+```
+
+先在本机或 CI 构建 Linux 二进制：
+
+```bash
+cd server
+GOOS=linux GOARCH=amd64 go build -o ../deploy-webhook ./cmd/deploy-webhook
+```
+
+上传到服务器项目目录后，复制配置：
+
+```bash
+cp deploy-webhook.example.env deploy-webhook.env
+vim deploy-webhook.env
+```
+
+至少修改：
+
+```env
+DEPLOY_WEBHOOK_ADDR=:9099
+DEPLOY_PASSWORD=你的发布密码
+PROJECT_DIR=/服务器上的项目目录
+DEPLOY_BRANCH=feature_examples
+DEPLOY_SCRIPT=/服务器上的项目目录/scripts/deploy-from-ghcr.sh
+```
+
+给脚本执行权限：
+
+```bash
+chmod +x scripts/deploy-from-ghcr.sh
+chmod +x deploy-webhook
+```
+
+测试启动：
+
+```bash
+set -a
+. ./deploy-webhook.env
+set +a
+./deploy-webhook
+```
+
+默认监听 `:9099`，也就是可以从外部访问服务器 `9099` 端口。另开一个终端测试：
+
+```bash
+curl "http://服务器IP:9099/deploy?password=你的发布密码"
+```
+
+如果要让它常驻，可以使用 `deploy-webhook.service.example`：
+
+```bash
+sudo cp deploy-webhook.service.example /etc/systemd/system/deploy-webhook.service
+sudo systemctl daemon-reload
+sudo systemctl enable deploy-webhook
+sudo systemctl start deploy-webhook
+sudo systemctl status deploy-webhook
+```
+
+如果服务器安全组没有放行 `9099`，需要先在云服务器控制台开放这个端口。
+
 ## 服务器部署建议
 
 服务器上可以直接让 `web` 容器暴露 `80`：
