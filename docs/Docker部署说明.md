@@ -2,12 +2,27 @@
 
 本项目可以用 Docker Compose 启动前端和后端，数据库使用现有服务器 MySQL，不在 Compose 里创建或初始化。
 
+当前推荐发布方式是：GitHub Actions 在 GitHub 上构建 Docker 镜像并推送到 GitHub Container Registry，服务器只拉取镜像运行，不在服务器上下载 npm/go 依赖和执行 Docker build。
+
 ## 服务组成
 
 - `web`：Nginx 容器，托管 Vite 构建后的前端静态文件，并把 `/api` 反向代理到后端。
 - `api`：Go Gin 后端容器，监听 `:8088`，连接 MySQL，提供登录注册和地图接口。
 
 前端默认请求同域 `/api`，所以线上不需要单独写死 API 域名。
+
+## 镜像发布
+
+仓库提供 `.github/workflows/docker-publish.yml`。推送到 `feature_examples` 或 `master` 后，GitHub Actions 会构建并推送两个镜像：
+
+```text
+ghcr.io/zjj873994125/game-rocker-web:latest
+ghcr.io/zjj873994125/game-rocker-api:latest
+```
+
+同时也会推送以提交 SHA 命名的镜像标签，方便后续需要固定版本回滚。
+
+如果 GHCR 包默认是私有的，需要在 GitHub 仓库的 Packages 页面把这两个镜像改成公开，或者在服务器上先执行 `docker login ghcr.io`。
 
 ## 首次启动
 
@@ -20,6 +35,8 @@ cp .env.docker.example .env
 修改 `.env` 里的数据库连接和 `AUTH_TOKEN_SECRET`。生产环境不能使用示例值。
 
 ```env
+WEB_IMAGE=ghcr.io/zjj873994125/game-rocker-web:latest
+API_IMAGE=ghcr.io/zjj873994125/game-rocker-api:latest
 DB_HOST=你的数据库地址
 DB_PORT=3306
 DB_NAME=zombie_game_db
@@ -33,13 +50,15 @@ AUTH_TOKEN_SECRET=换成很长的随机字符串
 启动：
 
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 如果本机项目路径包含中文或特殊字符，Docker Compose 可能无法自动生成项目名，可以显式指定：
 
 ```bash
-docker compose -p zjj-zombie-game up -d --build
+docker compose -p zjj-zombie-game pull
+docker compose -p zjj-zombie-game up -d
 ```
 
 本机默认访问：
@@ -97,7 +116,15 @@ docker compose down
 重新构建并启动：
 
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
+```
+
+如果启动时使用了 `-p zjj-zombie-game`：
+
+```bash
+docker compose -p zjj-zombie-game pull
+docker compose -p zjj-zombie-game up -d
 ```
 
 ## 服务器部署建议

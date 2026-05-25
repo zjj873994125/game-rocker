@@ -1,8 +1,6 @@
 services:
   api:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
+    image: ${API_IMAGE:-ghcr.io/zjj873994125/game-rocker-api:latest}
     container_name: zjj-zombie-api
     restart: unless-stopped
     environment:
@@ -30,9 +28,7 @@ services:
       retries: 10
 
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile.web
+    image: ${WEB_IMAGE:-ghcr.io/zjj873994125/game-rocker-web:latest}
     container_name: zjj-zombie-web
     restart: unless-stopped
     depends_on:
