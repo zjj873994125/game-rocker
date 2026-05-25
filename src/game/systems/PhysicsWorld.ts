@@ -5,14 +5,13 @@ import { GAME_CONFIG } from '../constants'
 
 const FIXED_TIMESTEP = 1 / 60
 const MAX_TIMESTEP = 1 / 30
-const CHARACTER_HALF_HEIGHT = 0.62
-const CHARACTER_CENTER_Y = CHARACTER_HALF_HEIGHT + GAME_CONFIG.playerRadius
 
 let rapierInitPromise: Promise<void> | null = null
 
 export type PhysicsBodyHandle = {
   body: RAPIER.RigidBody
   collider: RAPIER.Collider
+  centerY: number
 }
 
 export type StaticBoxColliderConfig = {
@@ -55,11 +54,11 @@ export class PhysicsWorld {
   }
 
   createPlayerBody(position: THREE.Vector3) {
-    return this.createCharacterBody(position, GAME_CONFIG.playerRadius)
+    return this.createCharacterBody(position, GAME_CONFIG.playerRadius, GAME_CONFIG.playerColliderHalfHeight)
   }
 
   createZombieBody(position: THREE.Vector3, radius = GAME_CONFIG.zombieRadius) {
-    return this.createCharacterBody(position, radius)
+    return this.createCharacterBody(position, radius, GAME_CONFIG.zombieColliderHalfHeight)
   }
 
   createStaticBoxCollider(config: StaticBoxColliderConfig): PhysicsBodyHandle {
@@ -77,7 +76,7 @@ export class PhysicsWorld {
       body,
     )
 
-    return { body, collider }
+    return { body, collider, centerY: y }
   }
 
   moveKinematicBody(handle: PhysicsBodyHandle, position: THREE.Vector3) {
@@ -94,7 +93,7 @@ export class PhysicsWorld {
 
     handle.body.setNextKinematicTranslation({
       x: current.x + movement.x,
-      y: CHARACTER_CENTER_Y,
+      y: handle.centerY,
       z: current.z + movement.z,
     })
   }
@@ -116,17 +115,18 @@ export class PhysicsWorld {
     this.world.free()
   }
 
-  private createCharacterBody(position: THREE.Vector3, radius: number): PhysicsBodyHandle {
+  private createCharacterBody(position: THREE.Vector3, radius: number, halfHeight: number): PhysicsBodyHandle {
+    const centerY = halfHeight + radius
     const body = this.world.createRigidBody(
       RAPIER.RigidBodyDesc.kinematicPositionBased()
-        .setTranslation(position.x, CHARACTER_CENTER_Y, position.z)
+        .setTranslation(position.x, centerY, position.z)
         .lockRotations(),
     )
     const collider = this.world.createCollider(
-      RAPIER.ColliderDesc.capsule(CHARACTER_HALF_HEIGHT, radius),
+      RAPIER.ColliderDesc.capsule(halfHeight, radius),
       body,
     )
 
-    return { body, collider }
+    return { body, collider, centerY }
   }
 }

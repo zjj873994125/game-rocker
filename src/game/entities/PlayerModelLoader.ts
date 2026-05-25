@@ -8,6 +8,7 @@ import criminalMaleSkinUrl from '../assets/models/kenney_animated-characters-pro
 import cyborgFemaleSkinUrl from '../assets/models/kenney_animated-characters-protagonists/Skins/cyborgFemaleA.png?url'
 import skaterFemaleSkinUrl from '../assets/models/kenney_animated-characters-protagonists/Skins/skaterFemaleA.png?url'
 import skaterMaleSkinUrl from '../assets/models/kenney_animated-characters-protagonists/Skins/skaterMaleA.png?url'
+import { GAME_CONFIG } from '../constants'
 
 type PlayerModelAsset = {
   source: THREE.Group
@@ -83,7 +84,8 @@ async function loadKenneyPlayer(): Promise<PlayerModelAsset> {
   const box = new THREE.Box3().setFromObject(model)
   const size = box.getSize(new THREE.Vector3())
   const center = box.getCenter(new THREE.Vector3())
-  const targetHeight = 2.15
+  // 角色模型按目标身高统一缩放，避免换皮肤或换模型后和地图素材比例失衡。
+  const targetHeight = GAME_CONFIG.playerVisualHeight
   const scale = size.y > 0 ? targetHeight / size.y : 1
   const yOffset = -box.min.y * scale
 

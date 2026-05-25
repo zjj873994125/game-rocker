@@ -77,7 +77,9 @@ export class Gun {
     this.cooldown = stats.fireInterval
 
     return {
-      position: playerPosition.clone().add(new THREE.Vector3(direction.x * 0.78, 0.92, direction.z * 0.78)),
+      position: playerPosition
+        .clone()
+        .add(new THREE.Vector3(direction.x * GAME_CONFIG.bulletSpawnForward, GAME_CONFIG.bulletSpawnHeight, direction.z * GAME_CONFIG.bulletSpawnForward)),
       direction,
       weaponLevel: this.weaponLevel,
       damage: stats.damage,

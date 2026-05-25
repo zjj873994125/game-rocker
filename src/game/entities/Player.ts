@@ -88,17 +88,17 @@ export class Player {
       roughness: 0.62,
     })
 
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.42, 1.08, 16), bodyMaterial)
-    body.position.y = 0.62
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.29, 0.74, 16), bodyMaterial)
+    body.position.y = 0.42
     body.castShadow = true
     body.receiveShadow = true
 
-    const vest = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.54, 0.28), armorMaterial)
-    vest.position.set(0, 0.8, 0.12)
+    const vest = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.37, 0.2), armorMaterial)
+    vest.position.set(0, 0.55, 0.08)
     vest.castShadow = true
 
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 18, 12), skinMaterial)
-    head.position.y = 1.32
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 18, 12), skinMaterial)
+    head.position.y = 0.9
     head.castShadow = true
 
     this.setFrontGunMount()
@@ -138,7 +138,7 @@ export class Player {
   }
 
   private setFrontGunMount() {
-    this.gunMount.position.set(0, 0.9, 0.5)
+    this.gunMount.position.set(0, GAME_CONFIG.playerGunMountHeight, GAME_CONFIG.playerGunMountForward)
     this.gunMount.rotation.set(0, 0, 0)
     this.gunMount.scale.setScalar(1)
   }

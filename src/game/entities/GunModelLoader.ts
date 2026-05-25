@@ -20,6 +20,7 @@ import blasterOUrl from '../assets/models/kenney_blaster-kit_2.1/Models/GLB form
 import blasterPUrl from '../assets/models/kenney_blaster-kit_2.1/Models/GLB format/blaster-p.glb?url'
 import blasterQUrl from '../assets/models/kenney_blaster-kit_2.1/Models/GLB format/blaster-q.glb?url'
 import blasterRUrl from '../assets/models/kenney_blaster-kit_2.1/Models/GLB format/blaster-r.glb?url'
+import { GAME_CONFIG } from '../constants'
 
 type GunModelAsset = {
   sources: THREE.Group[]
@@ -66,7 +67,7 @@ export function cloneGunModel(asset: GunModelAsset, weaponLevel: number) {
   const box = new THREE.Box3().setFromObject(model)
   const size = box.getSize(new THREE.Vector3())
   const center = box.getCenter(new THREE.Vector3())
-  const scale = size.z > 0 ? 0.68 / size.z : 1
+  const scale = size.z > 0 ? GAME_CONFIG.gunModelLength / size.z : 1
 
   model.scale.setScalar(scale)
   model.position.set(-center.x * scale, 0.08 - center.y * scale, -center.z * scale)

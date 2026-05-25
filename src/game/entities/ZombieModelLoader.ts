@@ -5,6 +5,7 @@ import zombieRunUrl from '../assets/models/kenney_animated-characters-survivors/
 import zombieModelUrl from '../assets/models/kenney_animated-characters-survivors/Model/characterMedium.fbx?url'
 import zombieSkinUrl from '../assets/models/kenney_animated-characters-survivors/Skins/zombieA.png?url'
 import zombieSkinCUrl from '../assets/models/kenney_animated-characters-survivors/Skins/zombieC.png?url'
+import { GAME_CONFIG } from '../constants'
 
 type ZombieModelAsset = {
   source: THREE.Group
@@ -72,7 +73,8 @@ async function loadKenneyZombie(): Promise<ZombieModelAsset> {
   const box = new THREE.Box3().setFromObject(model)
   const size = box.getSize(new THREE.Vector3())
   const center = box.getCenter(new THREE.Vector3())
-  const targetHeight = 2.1
+  // 僵尸略矮于玩家，和墓地道具、围栏、门的比例保持一致。
+  const targetHeight = GAME_CONFIG.zombieVisualHeight
   const scale = size.y > 0 ? targetHeight / size.y : 1
   const yOffset = -box.min.y * scale
   const runClip = runAnimation.animations.find((clip) => clip.name.toLowerCase().includes('run')) ?? null

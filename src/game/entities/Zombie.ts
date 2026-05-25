@@ -33,33 +33,33 @@ export class Zombie {
     this.speed = speed
     this.group.position.copy(position)
 
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.45, 1.05, 10), this.bodyMaterial)
-    body.position.y = 0.58
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.31, 0.72, 10), this.bodyMaterial)
+    body.position.y = 0.4
     body.castShadow = true
     body.receiveShadow = true
 
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 10), this.headMaterial)
-    head.position.y = 1.27
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 14, 10), this.headMaterial)
+    head.position.y = 0.86
     head.castShadow = true
 
     const shoulder = new THREE.Mesh(
-      new THREE.BoxGeometry(0.88, 0.18, 0.22),
+      new THREE.BoxGeometry(0.6, 0.12, 0.15),
       new THREE.MeshStandardMaterial({ color: 0x33452f, roughness: 0.8 }),
     )
-    shoulder.position.y = 0.96
+    shoulder.position.y = 0.65
     shoulder.castShadow = true
 
     this.healthBack = new THREE.Mesh(
-      new THREE.BoxGeometry(0.72, 0.055, 0.035),
+      new THREE.BoxGeometry(0.54, 0.045, 0.032),
       new THREE.MeshBasicMaterial({ color: 0x2b1518 }),
     )
 
     this.healthFill = new THREE.Mesh(
-      new THREE.BoxGeometry(0.7, 0.065, 0.04),
+      new THREE.BoxGeometry(0.52, 0.052, 0.038),
       new THREE.MeshBasicMaterial({ color: 0xd83b3b }),
     )
     this.healthFill.position.set(0, 0.005, 0.01)
-    this.healthBarGroup.position.set(0, 1.72, 0)
+    this.healthBarGroup.position.set(0, GAME_CONFIG.zombieVisualHeight + 0.16, 0)
     this.healthBarGroup.add(this.healthBack, this.healthFill)
 
     this.group.add(body, head, shoulder, this.healthBarGroup)
@@ -89,7 +89,7 @@ export class Zombie {
     this.health = Math.max(0, this.health - amount)
     this.hitFlash = 0.12
     this.healthFill.scale.x = this.health / this.maxHealth
-    this.healthFill.position.x = -0.35 * (1 - this.healthFill.scale.x)
+    this.healthFill.position.x = -0.26 * (1 - this.healthFill.scale.x)
 
     return { killed: this.health <= 0 }
   }
@@ -122,7 +122,7 @@ export class Zombie {
         const model = cloneZombieModel(asset)
         this.model = model
         this.group.add(model)
-        this.healthBarGroup.position.y = asset.height + 0.22
+        this.healthBarGroup.position.y = asset.height + 0.16
         this.hidePlaceholder()
 
         if (asset.runClip) {
