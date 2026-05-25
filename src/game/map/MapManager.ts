@@ -175,7 +175,8 @@ export class MapManager {
   private loadPropModel(mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>, prop: MapPropConfig) {
     resolveMapAssetModelUrl(prop.assetId)
       .then((resolvedUrl) => {
-        const modelUrl = prop.modelUrl ?? resolvedUrl
+        // 数据库里的 modelUrl 可能来自旧构建，带 hash 的资源路径上线后会过期；运行时优先按 assetId 解析当前构建产物。
+        const modelUrl = resolvedUrl ?? prop.modelUrl
         if (!modelUrl) throw new Error(`Missing map model url for asset ${prop.assetId ?? prop.id}`)
 
         return loadMapModel(modelUrl)

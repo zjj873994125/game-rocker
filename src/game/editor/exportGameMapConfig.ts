@@ -9,7 +9,7 @@ function toPropConfig(object: EditorMapObject): MapPropConfig {
   return {
     id: object.id,
     assetId: object.assetId,
-    modelUrl: object.modelUrl,
+    // 运行时通过稳定的 assetId 解析当前构建里的模型 URL，避免把带 hash 的旧构建资源地址写进数据库。
     position: toRuntimeVector(object.position),
     // size 仍作为运行时 box fallback 和物理/选择代理尺寸；真实模型会按编辑器边界归一化显示。
     size: toRuntimeVector([
