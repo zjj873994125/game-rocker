@@ -20,9 +20,33 @@ export class Player {
   private runAction: THREE.AnimationAction | null = null
   private activeAction: THREE.AnimationAction | null = null
   private modelLoadId = 0
+  private readonly ammoLabelCanvas = document.createElement('canvas')
+  private readonly ammoLabelContext: CanvasRenderingContext2D
+  private readonly ammoLabelTexture: THREE.CanvasTexture
+  private readonly ammoLabel: THREE.Sprite
 
   constructor() {
+    this.ammoLabelCanvas.width = 256
+    this.ammoLabelCanvas.height = 96
+    const context = this.ammoLabelCanvas.getContext('2d')
+    if (!context) {
+      throw new Error('Canvas 2D context is not available.')
+    }
+    this.ammoLabelContext = context
+    this.ammoLabelTexture = new THREE.CanvasTexture(this.ammoLabelCanvas)
+    this.ammoLabelTexture.colorSpace = THREE.SRGBColorSpace
+    this.ammoLabel = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: this.ammoLabelTexture,
+      transparent: true,
+      depthTest: false,
+    }))
+    this.ammoLabel.position.set(0, GAME_CONFIG.playerVisualHeight + 0.28, 0)
+    this.ammoLabel.scale.set(1.24, 0.46, 1)
+    this.ammoLabel.renderOrder = 12
+
     this.createFallbackModel()
+    this.group.add(this.ammoLabel)
+    this.updateReloadLabel({ reloading: false, reloadRemaining: 0 })
     this.loadModel()
   }
 
@@ -70,6 +94,31 @@ export class Player {
     this.dashTimer = 0
     this.dashCooldown = 0
     this.loadModel()
+  }
+
+  updateReloadLabel(options: { reloading: boolean; reloadRemaining: number }) {
+    this.ammoLabel.visible = options.reloading
+    if (!options.reloading) return
+
+    const context = this.ammoLabelContext
+    const width = this.ammoLabelCanvas.width
+    const height = this.ammoLabelCanvas.height
+    const text = `换弹 ${options.reloadRemaining.toFixed(1)}s`
+
+    context.clearRect(0, 0, width, height)
+    context.fillStyle = 'rgba(8, 10, 12, 0.74)'
+    drawRoundRect(context, 18, 16, width - 36, height - 32, 18)
+    context.fill()
+    context.strokeStyle = 'rgba(255, 207, 105, 0.86)'
+    context.lineWidth = 4
+    context.stroke()
+
+    context.fillStyle = '#ffcf69'
+    context.font = '900 34px Avenir Next, Arial, sans-serif'
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.fillText(text, width / 2, height / 2)
+    this.ammoLabelTexture.needsUpdate = true
   }
 
   private createFallbackModel() {
@@ -150,4 +199,18 @@ export class Player {
     this.activeAction?.fadeOut(0.12)
     this.activeAction = nextAction
   }
+}
+
+function drawRoundRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+  context.beginPath()
+  context.moveTo(x + radius, y)
+  context.lineTo(x + width - radius, y)
+  context.quadraticCurveTo(x + width, y, x + width, y + radius)
+  context.lineTo(x + width, y + height - radius)
+  context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height)
+  context.lineTo(x + radius, y + height)
+  context.quadraticCurveTo(x, y + height, x, y + height - radius)
+  context.lineTo(x, y + radius)
+  context.quadraticCurveTo(x, y, x + radius, y)
+  context.closePath()
 }

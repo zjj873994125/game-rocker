@@ -35,10 +35,15 @@ const stats = ref<GameStats>({
   weaponLevel: 1,
   weaponExperience: 0,
   weaponRequiredExperience: 3,
+  ammo: 13,
+  magazineSize: 13,
+  reloading: false,
+  reloadRemaining: 0,
   mapId: 'graveyard-entrance',
   mapName: '墓地入口',
   requiredKills: 10,
   doorUnlocked: false,
+  doorPrompt: '',
 })
 
 const canStartGame = computed(() => !mapsLoading.value && !mapsError.value && maps.value.length > 0)
@@ -177,7 +182,7 @@ function startGame() {
         </div>
 
         <div v-if="showControlsHelp" class="controls-help">
-          WASD 或摇杆移动，A/Space 冲刺；门开启后靠近出口按 A 进入下一房间。X/P 暂停，Y/R 重新开始。
+          WASD 或摇杆移动，鼠标移动控制红外线和射击方向，A/Space 冲刺；门开启后靠近出口按 A 进入下一房间。X/P 暂停，Y/R 重新开始。
         </div>
 
         <div v-if="showMapDialog && gameStarted" class="map-dialog" role="dialog" aria-label="地图切换">
@@ -207,7 +212,7 @@ function startGame() {
         <div v-else-if="!gameStarted" class="start-screen" role="dialog" aria-label="开始游戏">
           <p class="eyebrow">生存射击</p>
           <strong>准备进入墓地</strong>
-          <span>点击开始后，角色会自动射击，使用摇杆控制移动。</span>
+          <span>点击开始后，使用摇杆移动，红外线跟随鼠标控制射击方向。</span>
           <button type="button" :disabled="!canStartGame" @click="startGame">开始游戏</button>
         </div>
 
@@ -222,6 +227,10 @@ function startGame() {
 
         <div v-if="gameStarted && stats.status !== 'running'" class="state-banner">
           {{ stats.status === 'paused' ? '已暂停' : '游戏结束' }}
+        </div>
+
+        <div v-if="gameStarted && stats.doorPrompt" class="door-prompt" role="status">
+          {{ stats.doorPrompt }}
         </div>
       </div>
 
@@ -258,6 +267,10 @@ function startGame() {
           <div>
             <span>武器</span>
             <strong>Lv.{{ stats.weaponLevel }}</strong>
+          </div>
+          <div>
+            <span>子弹</span>
+            <strong>{{ stats.ammo }}/{{ stats.magazineSize }}</strong>
           </div>
           <div>
             <span>出口</span>

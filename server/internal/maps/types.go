@@ -54,6 +54,8 @@ type StoredMap struct {
 	MapKey      string          `json:"mapKey"`
 	Name        string          `json:"name"`
 	Status      string          `json:"status"`
+	LevelNo     int             `json:"levelNo"`
+	LevelTheme  string          `json:"levelTheme"`
 	OwnerUserID *uint           `json:"ownerUserId,omitempty"`
 	EditMode    string          `json:"editMode"`
 	Config      GameMapConfig   `json:"config"`
@@ -66,6 +68,8 @@ type MapSummary struct {
 	MapKey        string    `json:"mapKey"`
 	Name          string    `json:"name"`
 	Status        string    `json:"status"`
+	LevelNo       int       `json:"levelNo"`
+	LevelTheme    string    `json:"levelTheme"`
 	OwnerUserID   *uint     `json:"ownerUserId,omitempty"`
 	EditMode      string    `json:"editMode"`
 	RequiredKills int       `json:"requiredKills"`
@@ -80,8 +84,10 @@ type MapVersion struct {
 }
 
 type SaveMapRequest struct {
-	Status   string        `json:"status"`
-	Remark   string        `json:"remark"`
-	EditMode string        `json:"editMode"`
-	Config   GameMapConfig `json:"config"`
+	Status     string        `json:"status"`
+	Remark     string        `json:"remark"`
+	LevelNo    int           `json:"levelNo"`
+	LevelTheme string        `json:"levelTheme"`
+	EditMode   string        `json:"editMode"`
+	Config     GameMapConfig `json:"config"`
 }

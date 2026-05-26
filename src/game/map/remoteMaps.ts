@@ -21,7 +21,16 @@ export function getCachedDefaultMapId() {
 }
 
 function sortMapsBySummary(maps: GameMapConfig[], summaries: MapSummary[]) {
-  const order = new Map(summaries.map((summary, index) => [summary.mapKey, index]))
+  const order = new Map(summaries.map((summary, index) => [summary.mapKey, {
+    index,
+    levelNo: summary.levelNo || 1,
+  }]))
 
-  return [...maps].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+  return [...maps].sort((a, b) => {
+    const left = order.get(a.id)
+    const right = order.get(b.id)
+
+    // 地图列表优先按关卡顺序进入游戏，同一关再保留后端列表原顺序。
+    return (left?.levelNo ?? 1) - (right?.levelNo ?? 1) || (left?.index ?? 0) - (right?.index ?? 0)
+  })
 }

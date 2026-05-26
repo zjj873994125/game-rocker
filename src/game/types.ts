@@ -23,10 +23,15 @@ export type GameStats = {
   weaponLevel: number
   weaponExperience: number
   weaponRequiredExperience: number
+  ammo: number
+  magazineSize: number
+  reloading: boolean
+  reloadRemaining: number
   mapId: string
   mapName: string
   requiredKills: number
   doorUnlocked: boolean
+  doorPrompt: string
 }
 
 export type BulletSpawn = {

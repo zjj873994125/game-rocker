@@ -4,7 +4,6 @@ import { getWeaponStats } from '../systems/BalanceSystem'
 import type { BulletSpawn } from '../types'
 import { cloneGunModel, loadGunModels } from './GunModelLoader'
 import type { Player } from './Player'
-import type { Zombie } from './Zombie'
 
 export class Gun {
   readonly group = new THREE.Group()
@@ -15,6 +14,8 @@ export class Gun {
   private model: THREE.Object3D | null = null
   private modelLoadId = 0
   private weaponLevel = 1
+  private ammo = GAME_CONFIG.magazineSize
+  private reloadTimer = 0
 
   constructor(player: Player) {
     this.player = player
@@ -56,14 +57,9 @@ export class Gun {
     this.loadModel(nextLevel)
   }
 
-  update(delta: number, zombies: Zombie[]): BulletSpawn | null {
-    this.cooldown = Math.max(0, this.cooldown - delta)
-
-    const target = this.findNearestZombie(zombies)
-    if (!target) return null
-
+  update(aimPoint: THREE.Vector3): BulletSpawn | null {
     const playerPosition = this.player.group.position
-    const direction = new THREE.Vector3().subVectors(target.group.position, playerPosition)
+    const direction = new THREE.Vector3().subVectors(aimPoint, playerPosition)
     direction.y = 0
 
     if (direction.lengthSq() <= 0.001) return null
@@ -72,9 +68,20 @@ export class Gun {
     this.player.group.rotation.y = Math.atan2(direction.x, direction.z)
 
     if (this.cooldown > 0) return null
+    if (this.reloadTimer > 0) return null
+
+    if (this.ammo <= 0) {
+      this.startReload()
+      return null
+    }
 
     const stats = getWeaponStats(this.weaponLevel)
     this.cooldown = stats.fireInterval
+    this.ammo -= 1
+
+    if (this.ammo <= 0) {
+      this.startReload()
+    }
 
     return {
       position: playerPosition
@@ -87,20 +94,40 @@ export class Gun {
     }
   }
 
-  private findNearestZombie(zombies: Zombie[]) {
-    let nearest: Zombie | null = null
-    let nearestDistance = Infinity
-    const playerPosition = this.player.group.position
+  updateState(delta: number) {
+    this.cooldown = Math.max(0, this.cooldown - delta)
+    this.updateReload(delta)
+  }
 
-    for (const zombie of zombies) {
-      const distance = playerPosition.distanceToSquared(zombie.group.position)
-      if (distance < nearestDistance) {
-        nearest = zombie
-        nearestDistance = distance
-      }
+  resetMagazine() {
+    this.ammo = GAME_CONFIG.magazineSize
+    this.reloadTimer = 0
+    this.cooldown = 0
+  }
+
+  getAmmoState() {
+    return {
+      ammo: this.ammo,
+      magazineSize: GAME_CONFIG.magazineSize,
+      reloading: this.reloadTimer > 0,
+      reloadRemaining: Number(this.reloadTimer.toFixed(2)),
     }
+  }
 
-    return nearest
+  private updateReload(delta: number) {
+    if (this.reloadTimer <= 0) return
+
+    this.reloadTimer = Math.max(0, this.reloadTimer - delta)
+    if (this.reloadTimer <= 0) {
+      this.ammo = GAME_CONFIG.magazineSize
+    }
+  }
+
+  private startReload() {
+    if (this.reloadTimer > 0) return
+
+    // 弹匣清空后自动换弹，换弹期间只允许角色继续移动和瞄准，不生成子弹。
+    this.reloadTimer = GAME_CONFIG.reloadDuration
   }
 
   private loadModel(weaponLevel: number) {

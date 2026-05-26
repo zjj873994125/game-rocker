@@ -61,6 +61,10 @@ export class MapManager {
   findEnterableDoor(playerPosition: THREE.Vector3, kills: number) {
     if (!this.isCleared(kills)) return null
 
+    return this.findNearbyDoor(playerPosition)
+  }
+
+  findNearbyDoor(playerPosition: THREE.Vector3) {
     return this.currentMap.doors.find((door) => {
       const [x, , z] = door.position
       const distance = Math.hypot(playerPosition.x - x, playerPosition.z - z)

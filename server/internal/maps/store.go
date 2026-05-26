@@ -48,10 +48,13 @@ func (s *FileStore) ListMaps() ([]MapSummary, error) {
 		if err != nil {
 			return nil, err
 		}
+		levelNo, levelTheme := NormalizeLevelMetadata(stored.LevelNo, stored.LevelTheme, stored.Config)
 		summaries = append(summaries, MapSummary{
 			MapKey:        stored.MapKey,
 			Name:          stored.Name,
 			Status:        stored.Status,
+			LevelNo:       levelNo,
+			LevelTheme:    levelTheme,
 			OwnerUserID:   stored.OwnerUserID,
 			EditMode:      normalizeEditMode(stored.EditMode),
 			RequiredKills: stored.Config.RequiredKills,
@@ -105,6 +108,7 @@ func (s *FileStore) SaveMap(mapKey string, request SaveMapRequest, user auth.Aut
 
 	stored.Name = request.Config.Name
 	stored.Status = status
+	stored.LevelNo, stored.LevelTheme = NormalizeLevelMetadata(request.LevelNo, request.LevelTheme, request.Config)
 	stored.EditMode = normalizeEditMode(request.EditMode)
 	if stored.OwnerUserID == nil {
 		stored.OwnerUserID = &user.ID

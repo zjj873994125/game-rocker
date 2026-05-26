@@ -4,6 +4,7 @@ import { clone } from 'three/addons/utils/SkeletonUtils.js'
 import dropTextureUrl from '../assets/models/kenney_blaster-kit_2.1/Models/GLB format/Textures/colormap.png?url'
 import clipSmallUrl from '../assets/models/kenney_blaster-kit_2.1/Models/GLB format/clip-small.glb?url'
 import medkitIconUrl from '../assets/models/kenney_blaster-kit_2.1/Previews/target-fragment-small.png?url'
+import { createTrackedLoadingManager, trackAssetTask } from '../systems/AssetLoadingProgress'
 
 export type DropItemType = 'medkit' | 'magazine'
 
@@ -131,23 +132,30 @@ async function loadDropAssets(): Promise<DropAssets> {
   return dropAssetsPromise
 }
 
+export function preloadDropAssets() {
+  return loadDropAssets()
+}
+
 async function loadDropAssetsOnce() {
-  const gltfLoader = new GLTFLoader()
-  const textureLoader = new THREE.TextureLoader()
+  const manager = createTrackedLoadingManager('掉落物资源')
+  const gltfLoader = new GLTFLoader(manager)
+  const textureLoader = new THREE.TextureLoader(manager)
 
-  const [clipSmall, clipTexture, medkitTexture] = await Promise.all([
-    gltfLoader.loadAsync(clipSmallUrl).then((gltf) => gltf.scene),
-    textureLoader.loadAsync(dropTextureUrl),
-    textureLoader.loadAsync(medkitIconUrl),
-  ])
+  return trackAssetTask('asset:drops', '加载掉落物模型', (async () => {
+    const [clipSmall, clipTexture, medkitTexture] = await Promise.all([
+      gltfLoader.loadAsync(clipSmallUrl).then((gltf) => gltf.scene),
+      textureLoader.loadAsync(dropTextureUrl),
+      textureLoader.loadAsync(medkitIconUrl),
+    ])
 
-  clipTexture.colorSpace = THREE.SRGBColorSpace
-  clipTexture.flipY = false
-  medkitTexture.colorSpace = THREE.SRGBColorSpace
+    clipTexture.colorSpace = THREE.SRGBColorSpace
+    clipTexture.flipY = false
+    medkitTexture.colorSpace = THREE.SRGBColorSpace
 
-  return {
-    clipSmall,
-    clipTexture,
-    medkitTexture,
-  }
+    return {
+      clipSmall,
+      clipTexture,
+      medkitTexture,
+    }
+  })())
 }

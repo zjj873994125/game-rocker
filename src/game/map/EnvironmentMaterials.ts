@@ -6,9 +6,10 @@ import {
   DEFAULT_GROUND_TEXTURE_ID,
   getGroundTextureDefinition,
 } from './GroundMaterials'
+import { createTrackedLoadingManager } from '../systems/AssetLoadingProgress'
 import type { GroundMaterialConfig } from './types'
 
-const textureLoader = new THREE.TextureLoader()
+const textureLoader = new THREE.TextureLoader(createTrackedLoadingManager('环境贴图'))
 let doorTexture: THREE.Texture | null = null
 const groundTextures = new Map<string, THREE.Texture>()
 

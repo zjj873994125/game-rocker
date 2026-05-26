@@ -29,10 +29,17 @@ func (s *MapStore) ListMaps() ([]maps.MapSummary, error) {
 
 	summaries := make([]maps.MapSummary, 0, len(rows))
 	for _, row := range rows {
+		levelNo, levelTheme := maps.NormalizeLevelMetadata(row.LevelNo, row.LevelTheme, maps.GameMapConfig{
+			ID:            row.MapKey,
+			Name:          row.Name,
+			RequiredKills: row.RequiredKills,
+		})
 		summaries = append(summaries, maps.MapSummary{
 			MapKey:        row.MapKey,
 			Name:          row.Name,
 			Status:        row.Status,
+			LevelNo:       levelNo,
+			LevelTheme:    levelTheme,
 			OwnerUserID:   row.OwnerUserID,
 			EditMode:      maps.NormalizeEditMode(row.EditMode),
 			RequiredKills: row.RequiredKills,
@@ -66,6 +73,7 @@ func (s *MapStore) SaveMap(mapKey string, request maps.SaveMapRequest, user auth
 	if err != nil {
 		return maps.StoredMap{}, err
 	}
+	levelNo, levelTheme := maps.NormalizeLevelMetadata(request.LevelNo, request.LevelTheme, request.Config)
 
 	var saved domain.Map
 	err = s.db.Transaction(func(tx *gorm.DB) error {
@@ -81,6 +89,8 @@ func (s *MapStore) SaveMap(mapKey string, request maps.SaveMapRequest, user auth
 		row.MapKey = mapKey
 		row.Name = request.Config.Name
 		row.Status = status
+		row.LevelNo = levelNo
+		row.LevelTheme = levelTheme
 		row.RequiredKills = request.Config.RequiredKills
 		row.EditMode = maps.NormalizeEditMode(request.EditMode)
 		if row.OwnerUserID == nil {
@@ -195,11 +205,14 @@ func toStoredMap(row domain.Map) (maps.StoredMap, error) {
 	if err != nil {
 		return maps.StoredMap{}, err
 	}
+	levelNo, levelTheme := maps.NormalizeLevelMetadata(row.LevelNo, row.LevelTheme, config)
 
 	return maps.StoredMap{
 		MapKey:      row.MapKey,
 		Name:        row.Name,
 		Status:      row.Status,
+		LevelNo:     levelNo,
+		LevelTheme:  levelTheme,
 		OwnerUserID: row.OwnerUserID,
 		EditMode:    maps.NormalizeEditMode(row.EditMode),
 		Config:      config,

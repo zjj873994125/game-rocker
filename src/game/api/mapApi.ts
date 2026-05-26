@@ -1,10 +1,13 @@
 import type { GameMapConfig } from '../map/types'
+import type { MapLevelTheme } from '../map/levelMetadata'
 import { apiRequest } from './client'
 
 export type StoredMap = {
   mapKey: string
   name: string
   status: string
+  levelNo: number
+  levelTheme: MapLevelTheme
   ownerUserId?: number
   editMode: 'public' | 'private'
   config: GameMapConfig
@@ -16,6 +19,8 @@ export type MapSummary = {
   mapKey: string
   name: string
   status: string
+  levelNo: number
+  levelTheme: MapLevelTheme
   ownerUserId?: number
   editMode: 'public' | 'private'
   requiredKills: number
@@ -25,6 +30,8 @@ export type MapSummary = {
 export type SaveMapPayload = {
   status: string
   remark: string
+  levelNo: number
+  levelTheme: MapLevelTheme
   editMode?: 'public' | 'private'
   config: GameMapConfig
 }

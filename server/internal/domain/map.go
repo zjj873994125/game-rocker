@@ -12,6 +12,8 @@ type Map struct {
 	MapKey        string `gorm:"column:map_key;type:varchar(100);not null;uniqueIndex:idx_maps_map_key" json:"mapKey"`
 	Name          string `gorm:"column:name;type:varchar(100);not null" json:"name"`
 	Status        string `gorm:"column:status;type:varchar(20);not null;default:draft;index:idx_maps_status" json:"status"`
+	LevelNo       int    `gorm:"column:level_no;not null;default:1;index:idx_maps_level_no" json:"levelNo"`
+	LevelTheme    string `gorm:"column:level_theme;type:varchar(40);not null;default:graveyard;index:idx_maps_level_theme" json:"levelTheme"`
 	RequiredKills int    `gorm:"column:required_kills;not null;default:0" json:"requiredKills"`
 	OwnerUserID   *uint  `gorm:"column:owner_user_id;index:idx_maps_owner_user_id" json:"ownerUserId,omitempty"`
 	EditMode      string `gorm:"column:edit_mode;type:varchar(20);not null;default:public;index:idx_maps_edit_mode" json:"editMode"`

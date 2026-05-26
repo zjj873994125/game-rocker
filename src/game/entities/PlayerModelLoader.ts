@@ -9,6 +9,7 @@ import cyborgFemaleSkinUrl from '../assets/models/kenney_animated-characters-pro
 import skaterFemaleSkinUrl from '../assets/models/kenney_animated-characters-protagonists/Skins/skaterFemaleA.png?url'
 import skaterMaleSkinUrl from '../assets/models/kenney_animated-characters-protagonists/Skins/skaterMaleA.png?url'
 import { GAME_CONFIG } from '../constants'
+import { createTrackedLoadingManager, trackAssetTask } from '../systems/AssetLoadingProgress'
 
 type PlayerModelAsset = {
   source: THREE.Group
@@ -62,40 +63,43 @@ export function clonePlayerModel(asset: PlayerModelAsset): PlayerModelInstance {
 }
 
 async function loadKenneyPlayer(): Promise<PlayerModelAsset> {
-  const loader = new FBXLoader()
-  const textureLoader = new THREE.TextureLoader()
+  const manager = createTrackedLoadingManager('玩家资源')
+  const loader = new FBXLoader(manager)
+  const textureLoader = new THREE.TextureLoader(manager)
 
-  const [model, idleAnimation, runAnimation, criminalMale, cyborgFemale, skaterFemale, skaterMale] = await Promise.all([
-    loader.loadAsync(playerModelUrl),
-    loader.loadAsync(playerIdleUrl),
-    loader.loadAsync(playerRunUrl),
-    textureLoader.loadAsync(criminalMaleSkinUrl),
-    textureLoader.loadAsync(cyborgFemaleSkinUrl),
-    textureLoader.loadAsync(skaterFemaleSkinUrl),
-    textureLoader.loadAsync(skaterMaleSkinUrl),
-  ])
+  return trackAssetTask('asset:player', '加载玩家模型', (async () => {
+    const [model, idleAnimation, runAnimation, criminalMale, cyborgFemale, skaterFemale, skaterMale] = await Promise.all([
+      loader.loadAsync(playerModelUrl),
+      loader.loadAsync(playerIdleUrl),
+      loader.loadAsync(playerRunUrl),
+      textureLoader.loadAsync(criminalMaleSkinUrl),
+      textureLoader.loadAsync(cyborgFemaleSkinUrl),
+      textureLoader.loadAsync(skaterFemaleSkinUrl),
+      textureLoader.loadAsync(skaterMaleSkinUrl),
+    ])
 
-  const textures = [criminalMale, cyborgFemale, skaterFemale, skaterMale]
-  textures.forEach((texture) => {
-    texture.colorSpace = THREE.SRGBColorSpace
-    texture.flipY = true
-  })
+    const textures = [criminalMale, cyborgFemale, skaterFemale, skaterMale]
+    textures.forEach((texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace
+      texture.flipY = true
+    })
 
-  const box = new THREE.Box3().setFromObject(model)
-  const size = box.getSize(new THREE.Vector3())
-  const center = box.getCenter(new THREE.Vector3())
-  // 角色模型按目标身高统一缩放，避免换皮肤或换模型后和地图素材比例失衡。
-  const targetHeight = GAME_CONFIG.playerVisualHeight
-  const scale = size.y > 0 ? targetHeight / size.y : 1
-  const yOffset = -box.min.y * scale
+    const box = new THREE.Box3().setFromObject(model)
+    const size = box.getSize(new THREE.Vector3())
+    const center = box.getCenter(new THREE.Vector3())
+    // 角色模型按目标身高统一缩放，避免换皮肤或换模型后和地图素材比例失衡。
+    const targetHeight = GAME_CONFIG.playerVisualHeight
+    const scale = size.y > 0 ? targetHeight / size.y : 1
+    const yOffset = -box.min.y * scale
 
-  return {
-    source: model,
-    idleClip: idleAnimation.animations.find((clip) => clip.name.toLowerCase().includes('idle')) ?? null,
-    runClip: runAnimation.animations.find((clip) => clip.name.toLowerCase().includes('run')) ?? null,
-    scale,
-    yOffset,
-    center,
-    textures,
-  }
+    return {
+      source: model,
+      idleClip: idleAnimation.animations.find((clip) => clip.name.toLowerCase().includes('idle')) ?? null,
+      runClip: runAnimation.animations.find((clip) => clip.name.toLowerCase().includes('run')) ?? null,
+      scale,
+      yOffset,
+      center,
+      textures,
+    }
+  })())
 }

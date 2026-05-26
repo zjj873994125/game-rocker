@@ -6,6 +6,7 @@ import bulletFoamUrl from '../assets/models/kenney_blaster-kit_2.1/Models/GLB fo
 import bulletFoamThickUrl from '../assets/models/kenney_blaster-kit_2.1/Models/GLB format/bullet-foam-thick.glb?url'
 import bulletFoamTipUrl from '../assets/models/kenney_blaster-kit_2.1/Models/GLB format/bullet-foam-tip.glb?url'
 import bulletFoamTipThickUrl from '../assets/models/kenney_blaster-kit_2.1/Models/GLB format/bullet-foam-tip-thick.glb?url'
+import { createTrackedLoadingManager, trackAssetTask } from '../systems/AssetLoadingProgress'
 
 type BulletModelAsset = {
   sources: THREE.Group[]
@@ -62,19 +63,22 @@ function getBulletIndex(weaponLevel: number) {
 }
 
 async function loadFoamBullets(): Promise<BulletModelAsset> {
-  const loader = new GLTFLoader()
-  const textureLoader = new THREE.TextureLoader()
+  const manager = createTrackedLoadingManager('子弹资源')
+  const loader = new GLTFLoader(manager)
+  const textureLoader = new THREE.TextureLoader(manager)
 
-  const [texture, ...models] = await Promise.all([
-    textureLoader.loadAsync(bulletTextureUrl),
-    ...BULLET_URLS.map((url) => loader.loadAsync(url).then((gltf) => gltf.scene)),
-  ])
+  return trackAssetTask('asset:bullets', '加载子弹模型', (async () => {
+    const [texture, ...models] = await Promise.all([
+      textureLoader.loadAsync(bulletTextureUrl),
+      ...BULLET_URLS.map((url) => loader.loadAsync(url).then((gltf) => gltf.scene)),
+    ])
 
-  texture.colorSpace = THREE.SRGBColorSpace
-  texture.flipY = false
+    texture.colorSpace = THREE.SRGBColorSpace
+    texture.flipY = false
 
-  return {
-    sources: models,
-    texture,
-  }
+    return {
+      sources: models,
+      texture,
+    }
+  })())
 }

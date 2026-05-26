@@ -14,11 +14,46 @@ import { PhysicsWorld, type PhysicsBodyHandle } from './PhysicsWorld'
 import { WeaponProgression } from './WeaponProgression'
 import { ZombieSpawner } from './ZombieSpawner'
 
+const DARK_MARKET_MAP_ID = 'mini-market-store'
+
+const DEFAULT_LIGHTING = {
+  background: 0x11151b,
+  fogNear: 17,
+  fogFar: 34,
+  ambientIntensity: 1.6,
+  keyIntensity: 2.4,
+} as const
+
+const DARK_MARKET_LIGHTING = {
+  background: 0x020304,
+  fogNear: 11,
+  fogFar: 24,
+  ambientIntensity: 0.02,
+  keyIntensity: 0.12,
+} as const
+
+const FLASHLIGHT_BEAM = {
+  length: 4,
+  width: 2.6,
+  nearWidth: 0.58,
+  startOffset: 0.28,
+  floorHeight: 0.11,
+} as const
+
 export class GameWorld {
   readonly scene = new THREE.Scene()
   readonly camera = new THREE.PerspectiveCamera(48, 1, 0.1, 80)
   readonly renderer: THREE.WebGLRenderer
 
+  private readonly raycaster = new THREE.Raycaster()
+  private readonly pointerNdc = new THREE.Vector2()
+  private readonly aimGroundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
+  private readonly aimPoint = new THREE.Vector3()
+  private readonly laserSight = this.createLaserSight()
+  private readonly flashlight = new THREE.SpotLight(0xfff0c0, 42, 5, Math.PI / 4.2, 0.9, 0.95)
+  private readonly flashlightTarget = new THREE.Object3D()
+  private readonly playerFillLight = new THREE.PointLight(0xffe6aa, 2.6, 4.6, 1.2)
+  private readonly flashlightBeam = this.createFlashlightBeam()
   private readonly player = new Player()
   private readonly gun = new Gun(this.player)
   private readonly spawner = new ZombieSpawner()
@@ -33,6 +68,8 @@ export class GameWorld {
   private readonly zombieBodies = new Map<Zombie, PhysicsBodyHandle>()
   private readonly mapBoundaryBodies: PhysicsBodyHandle[] = []
   private ground: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial> | null = null
+  private ambientLight: THREE.HemisphereLight | null = null
+  private keyLight: THREE.DirectionalLight | null = null
   private readonly physicsDebugGeometry = new THREE.BufferGeometry()
   private readonly physicsDebugLines = new THREE.LineSegments(
     this.physicsDebugGeometry,
@@ -43,6 +80,7 @@ export class GameWorld {
   private kills = 0
   private status: GameStatus = 'running'
   private viewMode: GameViewMode = 'angled'
+  private hasPointerAim = false
   private lastPausePressed = false
   private lastRestartPressed = false
   private lastDashPressed = false
@@ -71,9 +109,12 @@ export class GameWorld {
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.container.appendChild(this.renderer.domElement)
+    this.renderer.domElement.addEventListener('pointermove', this.handlePointerAim)
+    this.renderer.domElement.addEventListener('pointerdown', this.handlePointerAim)
     this.physicsDebugLines.visible = GAME_CONFIG.showPhysicsDebug
     this.physicsDebugLines.renderOrder = 10
     this.player.group.position.fromArray(this.mapManager.activeMap.spawnPoint)
+    this.updateDefaultAimPoint()
 
     this.setupScene()
     void this.setupPhysics()
@@ -122,6 +163,8 @@ export class GameWorld {
       debugMaterial.dispose()
     }
     this.renderer.dispose()
+    this.renderer.domElement.removeEventListener('pointermove', this.handlePointerAim)
+    this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerAim)
     this.renderer.domElement.remove()
 
     this.scene.traverse((object) => {
@@ -159,6 +202,7 @@ export class GameWorld {
       this.resolveCollisions()
       this.mapManager.updateDoorState(this.kills)
       this.updateCamera()
+      this.updateFlashlight()
       this.updatePhysicsDebug()
 
       if (this.player.health <= 0) {
@@ -194,6 +238,7 @@ export class GameWorld {
   switchMap(mapId: string) {
     this.mapManager.loadMap(mapId, { physics: this.physics })
     this.updateGroundMaterial()
+    this.updateMapLightingMode()
     this.resetLevelProgress()
   }
 
@@ -215,12 +260,16 @@ export class GameWorld {
     this.status = 'running'
     this.player.reset()
     this.player.group.position.fromArray(this.mapManager.activeMap.spawnPoint)
+    this.hasPointerAim = false
+    this.updateDefaultAimPoint()
     this.resetPlayerPhysicsBody()
     this.weaponProgression.reset()
     this.gun.setWeaponLevel(this.weaponProgression.level)
+    this.gun.resetMagazine()
     this.spawner.reset()
     this.mapManager.updateDoorState(this.kills)
     this.updateCamera()
+    this.updateFlashlight()
   }
 
   private tryEnterDoor() {
@@ -229,12 +278,20 @@ export class GameWorld {
 
     this.mapManager.loadMap(door.targetMapId, { physics: this.physics })
     this.updateGroundMaterial()
+    this.updateMapLightingMode()
     this.resetLevelProgress()
   }
 
   private updateGun(delta: number) {
+    this.gun.updateState(delta)
     this.gun.setWeaponLevel(this.weaponProgression.level)
-    const spawn = this.gun.update(delta, this.zombies)
+    if (this.hasPointerAim) {
+      this.updateAimPointFromPointer()
+    } else {
+      this.updateDefaultAimPoint()
+    }
+    this.player.updateReloadLabel(this.gun.getAmmoState())
+    const spawn = this.gun.update(this.aimPoint)
     if (!spawn) return
 
     const bullet = new Bullet(spawn.position, spawn.direction, spawn.weaponLevel, spawn.damage, spawn.speed)
@@ -328,13 +385,14 @@ export class GameWorld {
   }
 
   private setupScene() {
-    this.scene.background = new THREE.Color(0x11151b)
-    this.scene.fog = new THREE.Fog(0x11151b, 17, 34)
+    this.scene.background = new THREE.Color(DEFAULT_LIGHTING.background)
+    this.scene.fog = new THREE.Fog(DEFAULT_LIGHTING.background, DEFAULT_LIGHTING.fogNear, DEFAULT_LIGHTING.fogFar)
 
-    const hemiLight = new THREE.HemisphereLight(0xdde8ff, 0x253018, 1.6)
+    const hemiLight = new THREE.HemisphereLight(0xdde8ff, 0x253018, DEFAULT_LIGHTING.ambientIntensity)
+    this.ambientLight = hemiLight
     this.scene.add(hemiLight)
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2.4)
+    const keyLight = new THREE.DirectionalLight(0xffffff, DEFAULT_LIGHTING.keyIntensity)
     keyLight.position.set(5, 10, 5)
     keyLight.castShadow = true
     keyLight.shadow.mapSize.set(1024, 1024)
@@ -342,7 +400,18 @@ export class GameWorld {
     keyLight.shadow.camera.right = 16
     keyLight.shadow.camera.top = 16
     keyLight.shadow.camera.bottom = -16
+    this.keyLight = keyLight
     this.scene.add(keyLight)
+
+    this.flashlight.castShadow = true
+    this.flashlight.shadow.mapSize.set(1024, 1024)
+    this.flashlight.shadow.camera.near = 0.2
+    this.flashlight.shadow.camera.far = 12
+    this.flashlight.shadow.camera.fov = 46
+    this.flashlight.visible = false
+    this.flashlight.target = this.flashlightTarget
+    this.playerFillLight.visible = false
+    this.scene.add(this.flashlight, this.flashlightTarget, this.playerFillLight, this.flashlightBeam)
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(GAME_CONFIG.mapRadius * 2, GAME_CONFIG.mapRadius * 2, 24, 24),
@@ -356,6 +425,7 @@ export class GameWorld {
     const grid = new THREE.GridHelper(GAME_CONFIG.mapRadius * 2, 24, 0x5d674e, 0x454d3e)
     grid.position.y = 0.012
     this.scene.add(grid)
+    this.scene.add(this.laserSight)
 
     const border = new THREE.LineSegments(
       new THREE.EdgesGeometry(new THREE.BoxGeometry(GAME_CONFIG.mapRadius * 2, 0.3, GAME_CONFIG.mapRadius * 2)),
@@ -368,7 +438,124 @@ export class GameWorld {
     this.updateGroundMaterial()
     this.scene.add(this.player.group)
     this.scene.add(this.physicsDebugLines)
+    this.updateMapLightingMode()
     this.updateCamera()
+    this.updateLaserSight()
+  }
+
+  private updateMapLightingMode() {
+    const lighting = this.isDarkMarketMap() ? DARK_MARKET_LIGHTING : DEFAULT_LIGHTING
+    this.scene.background = new THREE.Color(lighting.background)
+    this.scene.fog = new THREE.Fog(lighting.background, lighting.fogNear, lighting.fogFar)
+
+    if (this.ambientLight) this.ambientLight.intensity = lighting.ambientIntensity
+    if (this.keyLight) this.keyLight.intensity = lighting.keyIntensity
+
+    // 便利店是室内关卡，用低环境光和玩家前方聚光灯制造手电筒视野。
+    this.flashlight.visible = this.isDarkMarketMap()
+    this.playerFillLight.visible = this.flashlight.visible
+    this.flashlightBeam.visible = this.flashlight.visible
+    this.updateFlashlight()
+  }
+
+  private isDarkMarketMap() {
+    return this.mapManager.activeMap.id === DARK_MARKET_MAP_ID
+  }
+
+  private updateFlashlight() {
+    if (!this.flashlight.visible) return
+
+    const rotation = this.player.group.rotation.y
+    const forward = new THREE.Vector3(Math.sin(rotation), 0, Math.cos(rotation))
+    const playerPosition = this.player.group.position
+
+    this.flashlight.position
+      .copy(playerPosition)
+      .add(new THREE.Vector3(0, 1.45, 0))
+      .addScaledVector(forward, 0.72)
+    this.flashlightTarget.position
+      .copy(playerPosition)
+      .add(new THREE.Vector3(0, 0.38, 0))
+      .addScaledVector(forward, 6.4)
+    this.playerFillLight.position
+      .copy(playerPosition)
+      .add(new THREE.Vector3(0, 1.05, 0))
+      .addScaledVector(forward, 0.42)
+    this.flashlightBeam.position
+      .copy(playerPosition)
+      .add(new THREE.Vector3(0, FLASHLIGHT_BEAM.floorHeight, 0))
+      .addScaledVector(forward, FLASHLIGHT_BEAM.startOffset)
+    this.flashlightBeam.rotation.set(0, rotation, 0)
+  }
+
+  private createFlashlightBeam() {
+    const { length, width, nearWidth } = FLASHLIGHT_BEAM
+    const geometry = new THREE.BufferGeometry()
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
+      -nearWidth / 2, 0, 0,
+      -width / 2, 0, length,
+      width / 2, 0, length,
+      nearWidth / 2, 0, 0,
+    ]), 3))
+    geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([
+      0.45, 0,
+      0, 1,
+      1, 1,
+      0.55, 0,
+    ]), 2))
+    geometry.setIndex([0, 1, 2, 0, 2, 3])
+    geometry.computeVertexNormals()
+
+    const texture = this.createFlashlightBeamTexture()
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      opacity: 1,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    })
+    const mesh = new THREE.Mesh(geometry, material)
+
+    // 光锥用于表现手电筒照射范围，不参与碰撞和命中计算。
+    mesh.visible = false
+    mesh.renderOrder = 8
+
+    return mesh
+  }
+
+  private createFlashlightBeamTexture() {
+    const canvas = document.createElement('canvas')
+    canvas.width = 256
+    canvas.height = 512
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('Canvas 2D context is not available.')
+    }
+
+    const gradient = context.createLinearGradient(0, canvas.height, 0, 0)
+    gradient.addColorStop(0, 'rgba(255, 244, 188, 0.9)')
+    gradient.addColorStop(0.38, 'rgba(255, 226, 132, 0.54)')
+    gradient.addColorStop(0.72, 'rgba(255, 214, 112, 0.2)')
+    gradient.addColorStop(1, 'rgba(255, 214, 112, 0)')
+
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    context.beginPath()
+    context.moveTo(canvas.width * 0.48, canvas.height)
+    context.quadraticCurveTo(canvas.width * 0.14, canvas.height * 0.5, 0, 0)
+    context.lineTo(canvas.width, 0)
+    context.quadraticCurveTo(canvas.width * 0.86, canvas.height * 0.5, canvas.width * 0.52, canvas.height)
+    context.closePath()
+    context.fillStyle = gradient
+    context.fill()
+
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+    texture.needsUpdate = true
+
+    return texture
   }
 
   private async setupPhysics() {
@@ -459,9 +646,74 @@ export class GameWorld {
     }
 
     this.camera.updateProjectionMatrix()
+    this.updateLaserSight()
+  }
+
+  private handlePointerAim = (event: PointerEvent) => {
+    const rect = this.renderer.domElement.getBoundingClientRect()
+    const width = Math.max(1, rect.width)
+    const height = Math.max(1, rect.height)
+
+    this.pointerNdc.set(
+      ((event.clientX - rect.left) / width) * 2 - 1,
+      -(((event.clientY - rect.top) / height) * 2 - 1),
+    )
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera)
+
+    this.hasPointerAim = true
+    this.updateAimPointFromPointer()
+  }
+
+  private updateAimPointFromPointer() {
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera)
+
+    const hit = new THREE.Vector3()
+    if (!this.raycaster.ray.intersectPlane(this.aimGroundPlane, hit)) return
+
+    this.aimPoint.set(hit.x, 0, hit.z)
+    this.updateLaserSight()
+  }
+
+  private updateDefaultAimPoint() {
+    const rotation = this.player.group.rotation.y
+    this.aimPoint
+      .copy(this.player.group.position)
+      .add(new THREE.Vector3(Math.sin(rotation) * 3, 0, Math.cos(rotation) * 3))
+    this.updateLaserSight()
+  }
+
+  private createLaserSight() {
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3))
+
+    const line = new THREE.Line(
+      geometry,
+      new THREE.LineBasicMaterial({ color: 0xff2424, transparent: true, opacity: 0.82, depthTest: false }),
+    )
+
+    // 红外线只是世界空间方向提示，不参与物理、命中或地图射线选择。
+    line.renderOrder = 9
+
+    return line
+  }
+
+  private updateLaserSight() {
+    const positions = this.laserSight.geometry.getAttribute('position') as THREE.BufferAttribute
+    const origin = this.player.group.position
+    const direction = new THREE.Vector3().subVectors(this.aimPoint, origin)
+
+    if (direction.lengthSq() <= 0.001) return
+
+    direction.normalize()
+    positions.setXYZ(0, origin.x + direction.x * GAME_CONFIG.bulletSpawnForward, GAME_CONFIG.bulletSpawnHeight, origin.z + direction.z * GAME_CONFIG.bulletSpawnForward)
+    positions.setXYZ(1, this.aimPoint.x, 0.06, this.aimPoint.z)
+    positions.needsUpdate = true
+    this.laserSight.geometry.computeBoundingSphere()
   }
 
   private emitStats() {
+    const ammoState = this.gun.getAmmoState()
+
     this.onStats({
       status: this.status,
       health: this.player.health,
@@ -471,10 +723,28 @@ export class GameWorld {
       weaponLevel: this.weaponProgression.level,
       weaponExperience: this.weaponProgression.experience,
       weaponRequiredExperience: this.weaponProgression.requiredExperience,
+      ammo: ammoState.ammo,
+      magazineSize: ammoState.magazineSize,
+      reloading: ammoState.reloading,
+      reloadRemaining: ammoState.reloadRemaining,
       mapId: this.mapManager.activeMap.id,
       mapName: this.mapManager.activeMap.name,
       requiredKills: this.mapManager.activeMap.requiredKills,
       doorUnlocked: this.mapManager.isCleared(this.kills),
+      doorPrompt: this.getDoorPrompt(),
     })
+  }
+
+  private getDoorPrompt() {
+    const nearbyDoor = this.mapManager.findNearbyDoor(this.player.group.position)
+    if (!nearbyDoor) return ''
+
+    // 提示只依赖距离和通关状态，避免玩家看到门变亮后不知道还需要按进入键。
+    if (!this.mapManager.isCleared(this.kills)) {
+      return `出口未开启，还需 ${Math.max(0, this.mapManager.activeMap.requiredKills - this.kills)} 击杀`
+    }
+
+    const targetMap = this.mapManager.availableMaps.find((map) => map.id === nearbyDoor.targetMapId)
+    return `按 A/Space 进入${targetMap ? `：${targetMap.name}` : '下一关'}`
   }
 }

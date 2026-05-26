@@ -21,6 +21,8 @@ export const GAME_CONFIG = {
   bulletRadius: 0.12,
   bulletLifetime: 1.8,
   fireInterval: 0.65,
+  magazineSize: 13,
+  reloadDuration: 2.5,
   maxWeaponLevel: 18,
   dropChance: 0.5,
   magazineDropRatio: 0.6,

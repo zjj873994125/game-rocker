@@ -3,17 +3,20 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { deleteMap, getMap, listMaps, saveMap, type MapSummary } from '../api/mapApi'
 import { DEFAULT_GROUND_REPEAT, DEFAULT_GROUND_TEXTURE_ID, groundTextureOptions } from '../map/GroundMaterials'
+import { getLevelMetadata, inferMapLevelMetadata, mapLevelDefinitions, toEditorLevelType, type EditorLevelType } from '../map/levelMetadata'
 import { EditorWorld, type EditorBoundsDisplayState, type EditorPlacementMode } from './EditorWorld'
 import { editorAssets, getEditorAssetById } from './editorAssets'
 import { exportGameMapConfig } from './exportGameMapConfig'
 import { gameMapToEditorDocument } from './importGameMapConfig'
 import { moveObjectWithCollider, snapObjectToNeighbors } from './objectSnap'
-import type { EditorAssetKind, EditorDoor, EditorMapDocument, EditorMapObject, EditorVector3 } from './types'
+import type { EditorAssetDefinition, EditorAssetKind, EditorDoor, EditorMapDocument, EditorMapObject, EditorVector3 } from './types'
 
 const selectedAssetId = ref(editorAssets[0]?.id ?? '')
 const selectedAsset = computed(() => editorAssets.find((asset) => asset.id === selectedAssetId.value) ?? null)
 const assetSearchKeyword = ref('')
 const selectedAssetKind = ref<'all' | EditorAssetKind>('all')
+
+const selectedLevelType = ref<EditorLevelType>('graveyard')
 const backendMaps = ref<MapSummary[]>([])
 const selectedBackendMapKey = ref('')
 const backendStatus = ref('')
@@ -38,8 +41,20 @@ const snapEnabled = ref(false)
 const boundsDisplayState = ref<EditorBoundsDisplayState>({ bounds: false })
 const selectedObject = computed(() => placedObjects.value.find((object) => object.id === selectedObjectId.value) ?? null)
 const selectedDoor = computed(() => doors.value.find((door) => door.id === selectedDoorId.value) ?? null)
+const levelDefinitions = mapLevelDefinitions
+const currentLevelDefinition = computed(() => levelDefinitions[selectedLevelType.value])
+const currentLevelMetadata = computed(() => getLevelMetadata(selectedLevelType.value))
+const levelBackendMaps = computed(() => {
+  return backendMaps.value.filter((map) => {
+    return map.levelNo === currentLevelMetadata.value.levelNo
+      && toEditorLevelType(map.levelTheme) === selectedLevelType.value
+  })
+})
+const levelEditorAssets = computed(() => {
+  return editorAssets.filter((asset) => isAssetAvailableForLevel(asset, selectedLevelType.value))
+})
 const assetKindOptions = computed(() => {
-  const kinds = new Set(editorAssets.map((asset) => asset.kind))
+  const kinds = new Set(levelEditorAssets.value.map((asset) => asset.kind))
 
   return [
     { value: 'all' as const, label: '全部' },
@@ -49,7 +64,7 @@ const assetKindOptions = computed(() => {
 const filteredEditorAssets = computed(() => {
   const keyword = assetSearchKeyword.value.trim().toLowerCase()
 
-  return editorAssets.filter((asset) => {
+  return levelEditorAssets.value.filter((asset) => {
     const matchesKind = selectedAssetKind.value === 'all' || asset.kind === selectedAssetKind.value
     const matchesKeyword = !keyword
       || asset.name.toLowerCase().includes(keyword)
@@ -100,6 +115,30 @@ const assetKindLabels: Record<EditorAssetKind, string> = {
   spawn: '出生点',
 }
 
+function isMiniMarketAsset(asset: EditorAssetDefinition) {
+  return asset.id.startsWith('mini-market:')
+}
+
+function isAssetAvailableForLevel(asset: EditorAssetDefinition, levelType: EditorLevelType) {
+  if (asset.id === 'placeholder-box') return true
+  if (levelType === 'mini-market') return isMiniMarketAsset(asset)
+
+  return !isMiniMarketAsset(asset)
+}
+
+function getFirstAssetIdForLevel(levelType: EditorLevelType) {
+  return editorAssets.find((asset) => isAssetAvailableForLevel(asset, levelType))?.id ?? editorAssets[0]?.id ?? ''
+}
+
+function inferLevelTypeFromDocument(document: EditorMapDocument, map?: Pick<MapSummary, 'levelTheme'>): EditorLevelType {
+  if (map?.levelTheme) return toEditorLevelType(map.levelTheme)
+
+  return toEditorLevelType(inferMapLevelMetadata({
+    id: document.id,
+    props: document.objects,
+  }).levelTheme)
+}
+
 function createEmptyEditorDocument(): EditorMapDocument {
   const suffix = new Date()
     .toISOString()
@@ -107,8 +146,8 @@ function createEmptyEditorDocument(): EditorMapDocument {
     .replace(/\D/g, '')
 
   return {
-    id: `custom-map-${suffix}`,
-    name: `新建地图 ${suffix.slice(-6)}`,
+    id: `${currentLevelDefinition.value.defaultIdPrefix}-${suffix.slice(-6)}`,
+    name: `${currentLevelDefinition.value.defaultName} ${suffix.slice(-6)}`,
     spawnPoint: [0, 0, 0],
     requiredKills: 10,
     groundMaterial: {
@@ -149,6 +188,9 @@ onMounted(() => {
       spawnPoint.value = [...position]
     },
     onDoorPlaced(door) {
+      // 新门默认连到下一关，避免每次放门后还要手动补 targetMapId。
+      door.targetMapId = currentLevelDefinition.value.defaultDoorTargetMapId
+      door.targetSpawnId = currentLevelDefinition.value.defaultDoorTargetSpawnId
       doors.value.push(door)
       selectedDoorId.value = door.id
       selectedObjectId.value = ''
@@ -176,6 +218,13 @@ onMounted(() => {
 
 watch(selectedAsset, (asset) => {
   editorWorld?.setSelectedAsset(asset)
+})
+
+watch(selectedLevelType, () => {
+  selectedAssetKind.value = 'all'
+  if (!selectedAsset.value || !isAssetAvailableForLevel(selectedAsset.value, selectedLevelType.value)) {
+    selectedAssetId.value = getFirstAssetIdForLevel(selectedLevelType.value)
+  }
 })
 
 watch(selectedObjectId, (objectId) => {
@@ -310,7 +359,16 @@ function deleteSelectedDoor() {
   editorWorld?.setSelectedDoor('')
 }
 
-function applyEditorDocument(document: EditorMapDocument) {
+function findFirstMapForLevel(levelType: EditorLevelType) {
+  const metadata = getLevelMetadata(levelType)
+
+  return backendMaps.value.find((map) => {
+    return map.levelNo === metadata.levelNo && toEditorLevelType(map.levelTheme) === levelType
+  }) ?? null
+}
+
+function applyEditorDocument(document: EditorMapDocument, map?: Pick<MapSummary, 'levelTheme'>) {
+  selectedLevelType.value = inferLevelTypeFromDocument(document, map)
   mapId.value = document.id
   mapName.value = document.name
   requiredKills.value = document.requiredKills
@@ -349,13 +407,19 @@ function applyEditorDocument(document: EditorMapDocument) {
   editorWorld?.setSelectedDoor('')
 }
 
-function createNewMap() {
+function createNewMap(options: { silent?: boolean } = {}) {
   applyEditorDocument(createEmptyEditorDocument())
   selectedBackendMapKey.value = ''
   editMode.value = 'public'
   backendStatus.value = '已新建空白地图，填写地图信息后点击保存写入后端'
   exportCopyState.value = '新地图尚未保存'
-  ElMessage.success('已新建空白地图')
+  if (!options.silent) {
+    ElMessage.success('已新建空白地图')
+  }
+}
+
+function handleCreateNewMap() {
+  createNewMap()
 }
 
 async function refreshBackendMaps(options: { loadFirst?: boolean; silent?: boolean } = {}) {
@@ -364,7 +428,8 @@ async function refreshBackendMaps(options: { loadFirst?: boolean; silent?: boole
 
   try {
     backendMaps.value = await listMaps()
-    selectedBackendMapKey.value = backendMaps.value[0]?.mapKey ?? ''
+    const currentLevelMap = findFirstMapForLevel(selectedLevelType.value)
+    selectedBackendMapKey.value = currentLevelMap?.mapKey ?? backendMaps.value[0]?.mapKey ?? ''
     backendStatus.value = backendMaps.value.length > 0 ? `后端地图：${backendMaps.value.length} 张` : '后端暂无地图'
     if (!options.silent) {
       if (backendMaps.value.length > 0) {
@@ -393,7 +458,7 @@ async function loadSelectedBackendMap() {
 
   try {
     const stored = await getMap(selectedBackendMapKey.value)
-    applyEditorDocument(gameMapToEditorDocument(stored.config))
+    applyEditorDocument(gameMapToEditorDocument(stored.config), stored)
     editMode.value = stored.editMode ?? 'public'
     backendStatus.value = `已从后端载入：${stored.name}`
     ElMessage.success(`已载入地图：${stored.name}`)
@@ -404,6 +469,21 @@ async function loadSelectedBackendMap() {
   } finally {
     backendBusy.value = false
   }
+}
+
+async function loadMapForLevel(levelType: EditorLevelType) {
+  selectedLevelType.value = levelType
+
+  const targetMap = findFirstMapForLevel(levelType)
+  if (!targetMap) {
+    createNewMap({ silent: true })
+    backendStatus.value = `${levelDefinitions[levelType].label}暂无后端地图，已创建空白草稿`
+    ElMessage.warning(`${levelDefinitions[levelType].label}暂无后端地图，已创建空白草稿`)
+    return
+  }
+
+  selectedBackendMapKey.value = targetMap.mapKey
+  await loadSelectedBackendMap()
 }
 
 function createEditorDocument(): EditorMapDocument {
@@ -419,6 +499,10 @@ function createEditorDocument(): EditorMapDocument {
     objects: placedObjects.value,
     doors: doors.value,
   }
+}
+
+function selectLevelType(levelType: EditorLevelType) {
+  void loadMapForLevel(levelType)
 }
 
 async function ensurePlacedObjectModelUrls() {
@@ -447,9 +531,12 @@ async function saveCurrentMapToBackend() {
   try {
     await ensurePlacedObjectModelUrls()
     const result = exportGameMapConfig(createEditorDocument())
+    const levelMetadata = currentLevelMetadata.value
     const stored = await saveMap({
       status: 'draft',
       remark: 'editor save',
+      levelNo: levelMetadata.levelNo,
+      levelTheme: levelMetadata.levelTheme,
       editMode: editMode.value,
       config: result.map,
     })
@@ -524,9 +611,37 @@ onBeforeUnmount(() => {
 <template>
   <section class="level-editor" aria-label="开发关卡编辑器">
     <header class="level-editor__topbar">
-      <div class="level-editor__title">
-        <p class="eyebrow">关卡编辑器</p>
-        <strong>{{ mapName }}</strong>
+      <nav class="level-editor__level-switch" aria-label="关卡切换">
+        <button
+          v-for="(definition, levelType) in levelDefinitions"
+          :key="levelType"
+          type="button"
+          :disabled="backendBusy"
+          :class="{ active: selectedLevelType === levelType }"
+          @click="selectLevelType(levelType)"
+        >
+          <span>{{ definition.label }}</span>
+          <strong>{{ definition.title }}</strong>
+        </button>
+      </nav>
+
+      <div class="level-editor__top-actions">
+        <button type="button" :disabled="backendBusy" @click="handleCreateNewMap">新建</button>
+        <button type="button" :disabled="backendBusy" @click="() => refreshBackendMaps()">刷新</button>
+        <button type="button" :disabled="backendBusy || !selectedBackendMapKey" @click="loadSelectedBackendMap">
+          载入
+        </button>
+        <button
+          type="button"
+          :disabled="backendBusy || !selectedBackendMap"
+          class="level-editor__danger-btn"
+          @click="deleteSelectedBackendMap"
+        >
+          删除
+        </button>
+        <button type="button" :disabled="backendBusy" class="level-editor__primary-btn" @click="saveCurrentMapToBackend">
+          保存
+        </button>
       </div>
 
       <nav class="level-editor__tool-strip" aria-label="编辑工具">
@@ -552,44 +667,29 @@ onBeforeUnmount(() => {
           <span>边界线</span>
         </label>
       </nav>
-
-      <div class="level-editor__top-actions">
-        <button type="button" :disabled="backendBusy" @click="createNewMap">新建</button>
-        <button type="button" :disabled="backendBusy" @click="() => refreshBackendMaps()">刷新</button>
-        <button type="button" :disabled="backendBusy || !selectedBackendMapKey" @click="loadSelectedBackendMap">
-          载入
-        </button>
-        <button
-          type="button"
-          :disabled="backendBusy || !selectedBackendMap"
-          class="level-editor__danger-btn"
-          @click="deleteSelectedBackendMap"
-        >
-          删除
-        </button>
-        <button type="button" :disabled="backendBusy" class="level-editor__primary-btn" @click="saveCurrentMapToBackend">
-          保存
-        </button>
-      </div>
     </header>
 
     <aside class="level-editor__panel level-editor__assets">
       <div class="level-editor__load-map">
         <label>
           <span>后端地图</span>
-          <select v-model="selectedBackendMapKey" :disabled="backendBusy || backendMaps.length === 0">
-            <option v-for="map in backendMaps" :key="map.mapKey" :value="map.mapKey">
+          <select v-model="selectedBackendMapKey" :disabled="backendBusy || levelBackendMaps.length === 0">
+            <option v-for="map in levelBackendMaps" :key="map.mapKey" :value="map.mapKey">
               {{ map.name }}
             </option>
           </select>
         </label>
-        <small>{{ backendStatus || '后端接口默认使用 /api。' }}</small>
+        <small>{{ backendStatus || `当前显示${currentLevelDefinition.label}地图。` }}</small>
       </div>
 
       <div class="level-editor__panel-head">
         <p class="eyebrow">资源</p>
         <strong>对象库</strong>
       </div>
+
+      <small class="level-editor__level-hint">
+        当前：{{ currentLevelDefinition.description }}
+      </small>
 
       <div class="level-editor__asset-filters" aria-label="资源筛选">
         <label>
@@ -604,7 +704,7 @@ onBeforeUnmount(() => {
             </option>
           </select>
         </label>
-        <small>显示 {{ filteredEditorAssets.length }} / {{ editorAssets.length }} 个资源</small>
+        <small>显示 {{ filteredEditorAssets.length }} / {{ levelEditorAssets.length }} 个资源</small>
       </div>
 
       <div class="level-editor__asset-list">
@@ -652,9 +752,14 @@ onBeforeUnmount(() => {
         v-if="!selectedObject && !selectedDoor && placementMode !== 'set-spawn'"
         class="level-editor__section level-editor__section--plain"
       >
-        <label>
-          <span>地图 ID</span>
-          <input v-model="mapId" />
+          <label>
+            <span>关卡类型</span>
+            <input :value="`${currentLevelDefinition.label} / ${currentLevelDefinition.title}`" readonly />
+          </label>
+
+          <label>
+            <span>地图 ID</span>
+            <input v-model="mapId" />
         </label>
 
         <label>

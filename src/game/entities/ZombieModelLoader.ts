@@ -6,6 +6,7 @@ import zombieModelUrl from '../assets/models/kenney_animated-characters-survivor
 import zombieSkinUrl from '../assets/models/kenney_animated-characters-survivors/Skins/zombieA.png?url'
 import zombieSkinCUrl from '../assets/models/kenney_animated-characters-survivors/Skins/zombieC.png?url'
 import { GAME_CONFIG } from '../constants'
+import { createTrackedLoadingManager, trackAssetTask } from '../systems/AssetLoadingProgress'
 
 type ZombieModelAsset = {
   source: THREE.Group
@@ -54,41 +55,44 @@ export function cloneZombieModel(asset: ZombieModelAsset) {
 }
 
 async function loadKenneyZombie(): Promise<ZombieModelAsset> {
-  const loader = new FBXLoader()
-  const textureLoader = new THREE.TextureLoader()
+  const manager = createTrackedLoadingManager('僵尸资源')
+  const loader = new FBXLoader(manager)
+  const textureLoader = new THREE.TextureLoader(manager)
 
-  const [model, runAnimation, textureA, textureC] = await Promise.all([
-    loader.loadAsync(zombieModelUrl),
-    loader.loadAsync(zombieRunUrl),
-    textureLoader.loadAsync(zombieSkinUrl),
-    textureLoader.loadAsync(zombieSkinCUrl),
-  ])
+  return trackAssetTask('asset:zombie', '加载僵尸模型', (async () => {
+    const [model, runAnimation, textureA, textureC] = await Promise.all([
+      loader.loadAsync(zombieModelUrl),
+      loader.loadAsync(zombieRunUrl),
+      textureLoader.loadAsync(zombieSkinUrl),
+      textureLoader.loadAsync(zombieSkinCUrl),
+    ])
 
-  const textures = [textureA, textureC]
-  textures.forEach((texture) => {
-    texture.colorSpace = THREE.SRGBColorSpace
-    texture.flipY = true
-  })
+    const textures = [textureA, textureC]
+    textures.forEach((texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace
+      texture.flipY = true
+    })
 
-  const box = new THREE.Box3().setFromObject(model)
-  const size = box.getSize(new THREE.Vector3())
-  const center = box.getCenter(new THREE.Vector3())
-  // 僵尸略矮于玩家，和墓地道具、围栏、门的比例保持一致。
-  const targetHeight = GAME_CONFIG.zombieVisualHeight
-  const scale = size.y > 0 ? targetHeight / size.y : 1
-  const yOffset = -box.min.y * scale
-  const runClip = runAnimation.animations.find((clip) => clip.name.toLowerCase().includes('run')) ?? null
+    const box = new THREE.Box3().setFromObject(model)
+    const size = box.getSize(new THREE.Vector3())
+    const center = box.getCenter(new THREE.Vector3())
+    // 僵尸略矮于玩家，和墓地道具、围栏、门的比例保持一致。
+    const targetHeight = GAME_CONFIG.zombieVisualHeight
+    const scale = size.y > 0 ? targetHeight / size.y : 1
+    const yOffset = -box.min.y * scale
+    const runClip = runAnimation.animations.find((clip) => clip.name.toLowerCase().includes('run')) ?? null
 
-  return {
-    source: model,
-    animations: runAnimation.animations,
-    runClip,
-    scale,
-    yOffset,
-    center,
-    height: targetHeight,
-    textures,
-  }
+    return {
+      source: model,
+      animations: runAnimation.animations,
+      runClip,
+      scale,
+      yOffset,
+      center,
+      height: targetHeight,
+      textures,
+    }
+  })())
 }
 
 function createRandomZombieTint() {

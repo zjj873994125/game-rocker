@@ -21,6 +21,7 @@ import blasterPUrl from '../assets/models/kenney_blaster-kit_2.1/Models/GLB form
 import blasterQUrl from '../assets/models/kenney_blaster-kit_2.1/Models/GLB format/blaster-q.glb?url'
 import blasterRUrl from '../assets/models/kenney_blaster-kit_2.1/Models/GLB format/blaster-r.glb?url'
 import { GAME_CONFIG } from '../constants'
+import { createTrackedLoadingManager, trackAssetTask } from '../systems/AssetLoadingProgress'
 
 type GunModelAsset = {
   sources: THREE.Group[]
@@ -95,19 +96,22 @@ function getGunIndex(weaponLevel: number) {
 }
 
 async function loadBlasterModels(): Promise<GunModelAsset> {
-  const loader = new GLTFLoader()
-  const textureLoader = new THREE.TextureLoader()
+  const manager = createTrackedLoadingManager('武器资源')
+  const loader = new GLTFLoader(manager)
+  const textureLoader = new THREE.TextureLoader(manager)
 
-  const [texture, ...models] = await Promise.all([
-    textureLoader.loadAsync(blasterTextureUrl),
-    ...BLASTER_URLS.map((url) => loader.loadAsync(url).then((gltf) => gltf.scene)),
-  ])
+  return trackAssetTask('asset:guns', '加载武器模型', (async () => {
+    const [texture, ...models] = await Promise.all([
+      textureLoader.loadAsync(blasterTextureUrl),
+      ...BLASTER_URLS.map((url) => loader.loadAsync(url).then((gltf) => gltf.scene)),
+    ])
 
-  texture.colorSpace = THREE.SRGBColorSpace
-  texture.flipY = false
+    texture.colorSpace = THREE.SRGBColorSpace
+    texture.flipY = false
 
-  return {
-    sources: models,
-    texture,
-  }
+    return {
+      sources: models,
+      texture,
+    }
+  })())
 }
